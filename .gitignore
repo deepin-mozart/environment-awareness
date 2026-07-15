@@ -1,0 +1,49 @@
+# Build artifacts
+build/
+cmake-build-*/
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+Makefile
+*.cmake
+!CMakeLists.txt
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+
+# Compiled objects
+*.o
+*.obj
+*.so
+*.so.*
+*.a
+*.dylib
+
+# Executables
+deepin-environment-awareness
+test_storage
+test_redactor
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debian build
+*.deb
+*.changes
+*.buildinfo
+*.dsc
+debian/debian-deepin-environment-awareness.substvars
+debian/*.debhelper
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files

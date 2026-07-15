@@ -11,6 +11,26 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Core DBus Sql REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core DBus Sql REQUIRED)
 
+# X11 依赖（WindowSensor/InputSensor）
+find_package(X11 QUIET)
+if(X11_FOUND AND X11_Xrecord_LIB)
+    message(STATUS "X11 Record extension found")
+elseif(X11_FOUND)
+    # libXtst 提供 XRecord 但 CMake 未检测到 X11_Xrecord_LIB
+    find_library(XTST_LIB NAMES Xtst PATHS /usr/lib/x86_64-linux-gnu)
+    if(XTST_LIB)
+        set(X11_Xrecord_LIB ${XTST_LIB})
+        message(STATUS "X11 Record extension found via libXtst: ${XTST_LIB}")
+    else()
+        message(WARNING "X11 Record extension NOT found - InputSensor will use fallback mode")
+    endif()
+else()
+    message(WARNING "X11 Record extension NOT found - InputSensor will use fallback mode")
+endif()
+
+# QtGui/Widgets（ClipboardSensor 需要 QApplication）
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Gui Widgets QUIET)
+
 # 测试模块（可选）
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Test QUIET)
 if(NOT Qt${QT_VERSION_MAJOR}Test_FOUND)
@@ -41,6 +61,12 @@ set(UTILS_SOURCES
 
 set(SENSOR_SOURCES
     src/sensors/ISensor.cpp
+    src/sensors/WindowSensor.cpp
+    src/sensors/FileSensor.cpp
+    src/sensors/ClipboardSensor.cpp
+    src/sensors/InputSensor.cpp
+    src/sensors/SystemSensor.cpp
+    src/sensors/BrowserSensor.cpp
 )
 
 # Daemon 可执行文件
@@ -61,6 +87,20 @@ target_link_libraries(deepin-environment-awareness PRIVATE
     Qt${QT_VERSION_MAJOR}::DBus
     Qt${QT_VERSION_MAJOR}::Sql
 )
+
+if(Qt${QT_VERSION_MAJOR}Gui_FOUND)
+    target_link_libraries(deepin-environment-awareness PRIVATE Qt${QT_VERSION_MAJOR}::Gui)
+endif()
+if(Qt${QT_VERSION_MAJOR}Widgets_FOUND)
+    target_link_libraries(deepin-environment-awareness PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+endif()
+if(X11_FOUND)
+    target_link_libraries(deepin-environment-awareness PRIVATE ${X11_LIBRARIES})
+    if(X11_Xrecord_LIB)
+        target_link_libraries(deepin-environment-awareness PRIVATE ${X11_Xrecord_LIB})
+        target_compile_definitions(deepin-environment-awareness PRIVATE HAS_XRECORD=1)
+    endif()
+endif()
 
 target_compile_definitions(deepin-environment-awareness PRIVATE
     QT_VERSION_MAJOR=${QT_VERSION_MAJOR}
