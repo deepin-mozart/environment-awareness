@@ -1,0 +1,5 @@
+# Installation layout is handled by CMake's install() rules.
+# CMakeLists.txt already specifies:
+#   - binary → DESTINATION bin
+#   - systemd service → DESTINATION lib/systemd/user
+# No extra install file needed.

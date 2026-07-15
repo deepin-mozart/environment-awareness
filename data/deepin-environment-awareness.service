@@ -1,0 +1,12 @@
+[Unit]
+Description=Deepin Environment Awareness Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/deepin-environment-awareness
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

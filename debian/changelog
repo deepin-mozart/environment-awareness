@@ -1,0 +1,9 @@
+deepin-environment-awareness (1.0.0-1) unstable; urgency=medium
+
+  * Initial release.
+  * Plugin-based sensor framework with D-Bus interface.
+  * SQLite storage with redaction and configurable retention.
+  * 6 sensor types: window, file, clipboard, input, system, browser.
+  * Wayland/X11 dual-path support for window and input sensors.
+
+ -- deepin-mozart <deepin-mozart@github.com>  Tue, 15 Jul 2026 12:00:00 +0800

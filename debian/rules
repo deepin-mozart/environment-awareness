@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	mkdir -p build
+	cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+
+override_dh_auto_build:
+	$(MAKE) -C build -j$(nproc)
+
+override_dh_auto_install:
+	$(MAKE) -C build DESTDIR=$(CURDIR)/debian/deepin-environment-awareness install
+
+override_dh_auto_clean:
+	rm -rf build

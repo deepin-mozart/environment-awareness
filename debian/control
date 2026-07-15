@@ -1,0 +1,32 @@
+Source: deepin-environment-awareness
+Section: utils
+Priority: optional
+Maintainer: deepin-mozart <deepin-mozart@github.com>
+Build-Depends: cmake,
+               debhelper-compat (= 13),
+               qtbase5-dev,
+               qtbase5-dev-tools,
+               libqt5sql5-sqlite,
+               libdbus-1-dev,
+               libsqlite3-dev
+Standards-Version: 4.5.0
+Homepage: https://github.com/deepin-mozart/environment-awareness
+
+Package: deepin-environment-awareness
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         libqt5sql5-sqlite,
+         libdbus-1-3
+Description: Deepin Environment Awareness Daemon
+ A system environment awareness module for deepin's built-in AI assistant.
+ It runs as a background daemon, continuously sensing system changes and
+ recording user operations, and exposes query interfaces and event signals
+ via D-Bus for the AI assistant to better understand user context.
+ .
+ Key features:
+  * Plugin-based sensors: window, file, clipboard, input, system, browser
+  * SQLite storage with redaction and configurable retention
+  * D-Bus interfaces: Context, History, System, Config, Events
+  * Wayland/X11 dual-path support
+  * Privacy-first: content redaction, no keystroke recording
