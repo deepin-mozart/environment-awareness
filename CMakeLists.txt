@@ -135,3 +135,62 @@ if(Qt${QT_VERSION_MAJOR}Test_FOUND)
     )
     add_test(NAME test_redactor COMMAND test_redactor)
 endif()
+
+    # test_sensors: File/Window/Input/Browser (QTEST_APPLESS_MAIN)
+    add_executable(test_sensors tests/test_sensors.cpp ${CORE_SOURCES} ${UTILS_SOURCES} ${SENSOR_SOURCES})
+    target_include_directories(test_sensors PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(test_sensors PRIVATE
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Sql
+        Qt${QT_VERSION_MAJOR}::Gui
+        Qt${QT_VERSION_MAJOR}::Widgets
+        Qt${QT_VERSION_MAJOR}::Test
+    )
+    if(X11_FOUND)
+        target_link_libraries(test_sensors PRIVATE ${X11_LIBRARIES})
+        if(X11_Xrecord_LIB)
+            target_link_libraries(test_sensors PRIVATE ${X11_Xrecord_LIB})
+            target_compile_definitions(test_sensors PRIVATE HAS_XRECORD=1)
+        endif()
+    endif()
+    add_test(NAME test_sensors COMMAND test_sensors)
+
+    # test_system_sensor: SystemSensor (需要定时器等待，独立测试)
+    add_executable(test_system_sensor tests/test_system_sensor.cpp ${CORE_SOURCES} ${UTILS_SOURCES} ${SENSOR_SOURCES})
+    target_include_directories(test_system_sensor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(test_system_sensor PRIVATE
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Sql
+        Qt${QT_VERSION_MAJOR}::Gui
+        Qt${QT_VERSION_MAJOR}::Widgets
+        Qt${QT_VERSION_MAJOR}::Test
+    )
+    if(X11_FOUND)
+        target_link_libraries(test_system_sensor PRIVATE ${X11_LIBRARIES})
+        if(X11_Xrecord_LIB)
+            target_link_libraries(test_system_sensor PRIVATE ${X11_Xrecord_LIB})
+            target_compile_definitions(test_system_sensor PRIVATE HAS_XRECORD=1)
+        endif()
+    endif()
+    add_test(NAME test_system_sensor COMMAND test_system_sensor)
+
+    # test_clipboard_sensor: ClipboardSensor (需要 QApplication)
+    if(Qt${QT_VERSION_MAJOR}Widgets_FOUND)
+        add_executable(test_clipboard_sensor tests/test_clipboard_sensor.cpp ${CORE_SOURCES} ${UTILS_SOURCES} ${SENSOR_SOURCES})
+        target_include_directories(test_clipboard_sensor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(test_clipboard_sensor PRIVATE
+            Qt${QT_VERSION_MAJOR}::Core
+            Qt${QT_VERSION_MAJOR}::Gui
+            Qt${QT_VERSION_MAJOR}::Widgets
+            Qt${QT_VERSION_MAJOR}::Sql
+            Qt${QT_VERSION_MAJOR}::Test
+        )
+        if(X11_FOUND)
+            target_link_libraries(test_clipboard_sensor PRIVATE ${X11_LIBRARIES})
+            if(X11_Xrecord_LIB)
+                target_link_libraries(test_clipboard_sensor PRIVATE ${X11_Xrecord_LIB})
+                target_compile_definitions(test_clipboard_sensor PRIVATE HAS_XRECORD=1)
+            endif()
+        endif()
+        add_test(NAME test_clipboard_sensor COMMAND test_clipboard_sensor)
+    endif()
