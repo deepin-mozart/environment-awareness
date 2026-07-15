@@ -17,7 +17,7 @@ void EventsAdaptor::emitEvent(const Event &event)
         emit WindowChanged(info);
         break;
     case EventType::File:
-        if (event.action == QStringLiteral("open"))
+        if (event.action == QStringLiteral("open") || event.action == QStringLiteral("create"))
             emit FileOpened(info);
         else if (event.action == QStringLiteral("modify"))
             emit FileModified(info);
