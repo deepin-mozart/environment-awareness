@@ -37,11 +37,33 @@ bool WindowSensor::start()
     m_pollTimer->setInterval(interval);
     connect(m_pollTimer, &QTimer::timeout, this, &WindowSensor::onActiveWindowChanged);
     m_pollTimer->start();
-
-    // 记录初始窗口状态
-    m_lastWindowTitle = getCurrentActiveWindow();
-    m_lastAppName.clear();
-    m_lastWindowId = 0;
+    // 首次获取活动窗口 appName（不发送事件，仅填充状态）
+    if (m_x11Display) {
+        auto *display = static_cast<Display *>(m_x11Display);
+        Window root = DefaultRootWindow(display);
+        Atom activeAtom = XInternAtom(display, "_NET_ACTIVE_WINDOW", True);
+        Atom actualType; int actualFormat;
+        unsigned long nitems, bytesAfter;
+        unsigned char *data = nullptr;
+        if (XGetWindowProperty(display, root, activeAtom, 0, 1, False,
+                                XA_WINDOW, &actualType, &actualFormat,
+                                &nitems, &bytesAfter, &data) == Success && data) {
+            qint64 wid = static_cast<qint64>(*(Window *)data);
+            XFree(data);
+            m_lastWindowId = wid;
+            Atom pidAtom = XInternAtom(display, "_NET_WM_PID", True);
+            if (wid && pidAtom != None) {
+                if (XGetWindowProperty(display, static_cast<Window>(wid), pidAtom, 0, 1, False,
+                                        XA_CARDINAL, &actualType, &actualFormat,
+                                        &nitems, &bytesAfter, &data) == Success && data) {
+                    qint64 pid = *(unsigned long *)data;
+                    XFree(data);
+                    m_lastPid = pid;
+                    m_lastAppName = getAppNameFromPid(pid);
+                }
+            }
+        }
+    }
 
     m_running = true;
     emit statusChanged(QStringLiteral("running"));

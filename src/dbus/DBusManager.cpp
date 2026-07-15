@@ -15,6 +15,8 @@ DBusManager::DBusManager(StorageController *storage, EventBus *bus, QObject *par
     // ContextAdaptor 需要访问 HistoryAdaptor（GetBrowserTabs 委托）
     m_context->setHistoryAdaptor(m_history);
      m_system = new SystemAdaptor(this);
+    m_config = new ConfigAdaptor(m_storage, this);
+    m_events = new EventsAdaptor(this);
 
     // EventBus 事件 → EventsAdaptor D-Bus 信号
     connect(m_bus, &EventBus::eventSignal, this, &DBusManager::onEventSignal);
