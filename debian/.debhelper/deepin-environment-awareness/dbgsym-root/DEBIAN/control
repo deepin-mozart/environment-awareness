@@ -1,0 +1,12 @@
+Package: deepin-environment-awareness-dbgsym
+Source: deepin-environment-awareness
+Version: 1.0.0-1
+Auto-Built-Package: debug-symbols
+Architecture: amd64
+Maintainer: deepin-mozart <deepin-mozart@github.com>
+Installed-Size: 1581
+Depends: deepin-environment-awareness (= 1.0.0-1)
+Section: debug
+Priority: optional
+Description: debug symbols for deepin-environment-awareness
+Build-Ids: 159cdf220bb8a85cc12ffb4e7dbbc29817444a3c
