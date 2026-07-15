@@ -42,6 +42,12 @@ private:
 
     int m_intervalSec = 30;
 
+    // 上一次采样值，用于异常变化检测
+    double m_prevCpu = 0;
+    double m_prevMem = 0;
+    int m_prevBattery = -1;
+    QString m_prevNetwork;
+
     // CPU 计算需要上一次的值
     qint64 m_prevIdleTime = 0;
     qint64 m_prevTotalTime = 0;

@@ -59,8 +59,6 @@ void SystemSensor::stop()
 
 void SystemSensor::onSampleTimer()
 {
-    auto now = QDateTime::currentMSecsSinceEpoch();
-
     double cpu = readCpuUsage();
     double mem = readMemoryUsage();
     double disk = readDiskUsage();
@@ -70,28 +68,48 @@ void SystemSensor::onSampleTimer()
     int brightness = readBrightness();
     QVariantMap metadata = readMetadata();
 
-    // 通过 EventBus 发布系统状态事件
-    Event event(EventType::System, QStringLiteral("snapshot"));
-    event.contentPreview = QString("CPU:%1% MEM:%2% DISK:%3% BAT:%4%")
-                            .arg(cpu, 0, 'f', 1)
-                            .arg(mem, 0, 'f', 1)
-                            .arg(disk, 0, 'f', 1)
-                            .arg(battery);
-    event.metadata.insert(QStringLiteral("cpu"), cpu);
-    event.metadata.insert(QStringLiteral("memory"), mem);
-    event.metadata.insert(QStringLiteral("disk"), disk);
-    event.metadata.insert(QStringLiteral("network"), network);
-    event.metadata.insert(QStringLiteral("ssid"), ssid);
-    event.metadata.insert(QStringLiteral("battery"), battery);
-    event.metadata.insert(QStringLiteral("brightness"), brightness);
-    event.metadata = metadata; // 合并额外元数据（不覆盖上面设置的值）
-    event.metadata.insert(QStringLiteral("cpu"), cpu);
-    event.metadata.insert(QStringLiteral("memory"), mem);
-    event.metadata.insert(QStringLiteral("disk"), disk);
-    event.metadata.insert(QStringLiteral("network"), network);
-    event.metadata.insert(QStringLiteral("ssid"), ssid);
-    event.metadata.insert(QStringLiteral("battery"), battery);
-    event.metadata.insert(QStringLiteral("brightness"), brightness);
+    bool anomaly = false;
+    QString reason;
+
+    // CPU 使用率飙升（>80% 且上次正常）
+    if (cpu > 80.0 && m_prevCpu <= 80.0) {
+        anomaly = true;
+        reason = QString("cpu_high:%1%").arg(cpu, 0, 'f', 1);
+    }
+    // 电量低于阈值
+    if (battery >= 0 && battery <= 15 && m_prevBattery > 15) {
+        anomaly = true;
+        reason = QString("battery_low:%1%").arg(battery);
+    }
+    // 网络状态变化
+    if (network != m_prevNetwork && !m_prevNetwork.isEmpty()) {
+        anomaly = true;
+        reason = QString("network_change:%1→%2").arg(m_prevNetwork, network);
+    }
+    // 内存使用率飙升（>85%）
+    if (mem > 85.0 && m_prevMem <= 85.0) {
+        anomaly = true;
+        reason = QString("memory_high:%1%").arg(mem, 0, 'f', 1);
+    }
+
+    // 保存当前状态用于下次比较
+    m_prevCpu = cpu;
+    m_prevMem = mem;
+    m_prevBattery = battery;
+    m_prevNetwork = network;
+
+    if (!anomaly) return;
+
+    Event event(EventType::System, QStringLiteral("alert"));
+    event.contentPreview = reason;
+    metadata.insert(QStringLiteral("cpu"), cpu);
+    metadata.insert(QStringLiteral("memory"), mem);
+    metadata.insert(QStringLiteral("disk"), disk);
+    metadata.insert(QStringLiteral("network"), network);
+    metadata.insert(QStringLiteral("ssid"), ssid);
+    metadata.insert(QStringLiteral("battery"), battery);
+    metadata.insert(QStringLiteral("brightness"), brightness);
+    event.metadata = metadata;
 
     m_bus->publish(event);
     emit eventPublished(event);
