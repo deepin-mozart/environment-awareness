@@ -86,7 +86,7 @@ Object path:  /org/deepin/EnvironmentAwareness
 | `GetClipboardContent` | — | `a{sv}` | 当前剪贴板内容（文本+脱敏） |
 | `GetRecentActions` | `i:limit` | `aa{sv}` | 最近N条操作记录（内存缓存快速返回） |
 | `GetBrowserTabs` | — | `aa{sv}` | 当前浏览器标签页：url, title, favicon, tab_id |
-
+| `GetUserFocus` | — | `a{sv}` | 推断用户当前关注点：活跃应用+活跃文件+输入状态 |
 
 ### 3.4 History 接口 — 历史操作查询
 
@@ -122,7 +122,7 @@ Object path:  /org/deepin/EnvironmentAwareness
 ### 3.7 Events 接口 — 事件信号（主动通知）
 
 | 信号 | 参数 | 说明 |
-|---|---|---|---|
+|---|---|---|
 | `WindowChanged` | `a{sv}:window_info` | 活跃窗口切换 |
 | `FileOpened` | `a{sv}:file_info` | 文件被打开 |
 | `FileModified` | `a{sv}:file_info` | 文件内容变化 |
