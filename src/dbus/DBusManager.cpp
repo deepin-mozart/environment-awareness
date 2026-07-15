@@ -47,4 +47,9 @@ void DBusManager::onEventSignal(const Event &event)
     m_events->emitEvent(event);
 }
 
+void DBusManager::setContextSensors(WindowSensor *window, ClipboardSensor *clipboard)
+{
+    m_context->setSensors(window, clipboard);
+}
+
 } // namespace Awareness

@@ -115,6 +115,10 @@ install(FILES data/deepin-environment-awareness.service
     DESTINATION lib/systemd/user
 )
 
+install(FILES data/org.deepin.EnvironmentAwareness.service
+    DESTINATION share/dbus-1/services
+)
+
 # 测试
 if(Qt${QT_VERSION_MAJOR}Test_FOUND)
     enable_testing()
@@ -194,3 +198,8 @@ endif()
         endif()
         add_test(NAME test_clipboard_sensor COMMAND test_clipboard_sensor)
     endif()
+
+# D-Bus 测试工具（GUI 独立应用）
+if(Qt${QT_VERSION_MAJOR}Widgets_FOUND)
+    add_subdirectory(tools/dbus-test)
+endif()

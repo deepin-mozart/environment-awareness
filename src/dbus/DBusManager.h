@@ -9,9 +9,12 @@
 #include "ConfigAdaptor.h"
 #include "EventsAdaptor.h"
 
+
 #include <QObject>
 
 namespace Awareness {
+class WindowSensor;
+class ClipboardSensor;
 
 /**
  * @brief D-Bus 服务管理器，注册所有接口和对象路径
@@ -31,6 +34,9 @@ public:
 
     /// 注册 D-Bus 服务和所有接口，成功返回 true
     bool registerService();
+
+    /// 设置 Sensor 引用到 ContextAdaptor（在 sensor start() 之后调用）
+    void setContextSensors(WindowSensor *window, ClipboardSensor *clipboard);
 
 private slots:
     void onEventSignal(const Event &event);

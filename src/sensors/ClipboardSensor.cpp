@@ -170,4 +170,18 @@ QString ClipboardSensor::extractTextPreview(const QString &text, int maxLength) 
     return preview;
 }
 
+
+QVariantMap ClipboardSensor::currentContent() const
+{
+    QVariantMap map;
+    if (m_clipboard) {
+        QString text = m_clipboard->text();
+        map.insert(QStringLiteral("type"), QStringLiteral("text"));
+        map.insert(QStringLiteral("content"), text);
+    } else {
+        map.insert(QStringLiteral("type"), QString());
+        map.insert(QStringLiteral("content"), QString());
+    }
+    return map;
+}
 } // namespace Awareness

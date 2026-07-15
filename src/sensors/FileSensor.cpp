@@ -131,15 +131,18 @@ void FileSensor::onDirectoryChanged(const QString &path)
     }
     m_debounce[path] = now;
 
-    // 目录变化通常意味着新建文件
+    // 目录变化通常意味着新建/修改文件，检查最近几个文件
     QDir dir(path);
-    QStringList entries = dir.entryList(QDir::Files, QDir::Time | QDir::Reversed);
-    if (!entries.isEmpty()) {
-        QString newPath = dir.absoluteFilePath(entries.first());
-        // 仅当新文件在最近1秒内创建时才报告
+    QStringList entries = dir.entryList(QDir::Files, QDir::Time);
+    for (int i = 0; i < qMin(entries.size(), 3); ++i) {
+        QString newPath = dir.absoluteFilePath(entries[i]);
         QFileInfo fi(newPath);
-        if (fi.lastModified().toMSecsSinceEpoch() > now - 2000) {
-            emitFileEvent(newPath, QStringLiteral("create"));
+        if (fi.lastModified().toMSecsSinceEpoch() > now - 5000) {
+            auto fit = m_debounce.find(newPath);
+            if (fit == m_debounce.end() || (now - fit.value()) > DEBOUNCE_MS) {
+                m_debounce[newPath] = now;
+                emitFileEvent(newPath, fi.size() == 0 ? QStringLiteral("create") : QStringLiteral("modify"));
+            }
         }
     }
 }
@@ -158,8 +161,31 @@ void FileSensor::onRescanTimer()
         m_watchedDirs.remove(dir);
     }
 
-    // 清理过期的防抖记录
+    // 备用扫描：检测最近修改的文件并产生 file 事件
     auto now = QDateTime::currentMSecsSinceEpoch();
+    bool foundAny = false;
+    for (const auto &dirPath : m_watchedDirs) {
+        QDir dir(dirPath);
+        // QDir::Time 默认从新到旧排序
+        QStringList entries = dir.entryList(QDir::Files, QDir::Time);
+        for (int i = 0; i < qMin(entries.size(), 10); ++i) {
+            QString filePath = dir.absoluteFilePath(entries[i]);
+            QFileInfo fi(filePath);
+            qint64 mtime = fi.lastModified().toMSecsSinceEpoch();
+            // 最近 10 秒内修改过的文件
+            if (mtime > now - 10000) {
+                foundAny = true;
+                auto it = m_debounce.find(filePath);
+                if (it == m_debounce.end() || (now - it.value()) > DEBOUNCE_MS) {
+                    m_debounce[filePath] = now;
+                    awLogInfo() << "FileSensor: detected new file:" << filePath;
+                    emitFileEvent(filePath, fi.size() == 0 ? QStringLiteral("create") : QStringLiteral("modify"));
+                }
+            }
+        }
+    }
+
+    // 清理过期的防抖记录
     for (auto it = m_debounce.begin(); it != m_debounce.end(); ) {
         if (now - it.value() > 10000) {
             it = m_debounce.erase(it);

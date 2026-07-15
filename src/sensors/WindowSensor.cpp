@@ -145,6 +145,7 @@ void WindowSensor::onActiveWindowChanged()
 
     QString appName;
     qint64 windowId = 0;
+    qint64 pid = 0;
 
     // 获取当前活动窗口信息
     if (m_x11Display) {
@@ -169,7 +170,7 @@ void WindowSensor::onActiveWindowChanged()
             if (XGetWindowProperty(display, static_cast<Window>(windowId), pidAtom, 0, 1, False,
                                     XA_CARDINAL, &actualType, &actualFormat,
                                     &nitems, &bytesAfter, &data) == Success && data) {
-                qint64 pid = *(unsigned long *)data;
+                pid = *(unsigned long *)data;
                 XFree(data);
                 appName = getAppNameFromPid(pid);
             }
@@ -189,7 +190,7 @@ void WindowSensor::onActiveWindowChanged()
     Event event(EventType::Window, action);
     event.windowTitle = currentTitle;
     event.appName = appName;
-    event.appPid = (windowId ? windowId : 0);
+    event.appPid = pid;
     event.contentPreview = currentTitle.left(200);
 
     m_bus->publish(event);
@@ -198,6 +199,7 @@ void WindowSensor::onActiveWindowChanged()
     m_lastWindowTitle = currentTitle;
     m_lastAppName = appName;
     m_lastWindowId = windowId;
+    m_lastPid = pid;
 }
 
 QString WindowSensor::getCurrentActiveWindow()
@@ -258,4 +260,16 @@ QString WindowSensor::getAppNameFromPid(qint64 pid)
     return {};
 }
 
+
+QVariantMap WindowSensor::activeWindowInfo() const
+{
+    QVariantMap map;
+    map.insert(QStringLiteral("title"), m_lastWindowTitle);
+    map.insert(QStringLiteral("app_name"), m_lastAppName);
+    map.insert(QStringLiteral("pid"), m_lastPid);
+    map.insert(QStringLiteral("wm_class"), QString());
+    map.insert(QStringLiteral("window_id"), m_lastWindowId);
+    map.insert(QStringLiteral("is_minimized"), false);
+    return map;
+}
 } // namespace Awareness

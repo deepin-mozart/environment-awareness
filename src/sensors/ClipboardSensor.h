@@ -21,9 +21,11 @@ class ClipboardSensor : public ISensor
     Q_OBJECT
 public:
     explicit ClipboardSensor(EventBus *bus, QObject *parent = nullptr);
-
     bool start() override;
     void stop() override;
+
+    /// 获取当前剪贴板内容（供 D-Bus Context 接口查询）
+    QVariantMap currentContent() const;
 
 private slots:
     void onClipboardChanged();

@@ -1,4 +1,6 @@
 #include "ContextAdaptor.h"
+#include "../sensors/WindowSensor.h"
+#include "../sensors/ClipboardSensor.h"
 #include "../utils/Logger.h"
 namespace Awareness {
 
@@ -7,9 +9,17 @@ ContextAdaptor::ContextAdaptor(StorageController *storage, QObject *parent)
 {
 }
 
+void ContextAdaptor::setSensors(WindowSensor *window, ClipboardSensor *clipboard)
+{
+    m_windowSensor = window;
+    m_clipboardSensor = clipboard;
+}
+
 QVariantMap ContextAdaptor::GetActiveWindow()
 {
-    // 框架阶段返回空结构，WindowSensor 实现后填充
+    if (m_windowSensor) {
+        return m_windowSensor->activeWindowInfo();
+    }
     QVariantMap map;
     map.insert(QStringLiteral("title"), QString());
     map.insert(QStringLiteral("app_name"), QString());
@@ -22,13 +32,16 @@ QVariantMap ContextAdaptor::GetActiveWindow()
 
 QList<QVariantMap> ContextAdaptor::GetRecentFiles(int limit)
 {
-    Q_UNUSED(limit)
-    // 框架阶段返回空列表，FileSensor 实现后填充
-    return {};
+    QVariantMap filter;
+    filter.insert(QStringLiteral("type"), QStringLiteral("file"));
+    return m_storage->queryActions(filter).mid(0, limit);
 }
 
 QVariantMap ContextAdaptor::GetClipboardContent()
 {
+    if (m_clipboardSensor) {
+        return m_clipboardSensor->currentContent();
+    }
     QVariantMap map;
     map.insert(QStringLiteral("type"), QStringLiteral("text"));
     map.insert(QStringLiteral("content"), QString());
@@ -42,17 +55,25 @@ QList<QVariantMap> ContextAdaptor::GetRecentActions(int limit)
 
 QList<QVariantMap> ContextAdaptor::GetBrowserTabs()
 {
-    // 框架阶段返回空列表，BrowserSensor 实现后填充
-    return {};
+    QVariantMap filter;
+    filter.insert(QStringLiteral("type"), QStringLiteral("browser"));
+    filter.insert(QStringLiteral("action"), QStringLiteral("tab_changed"));
+    return m_storage->queryActions(filter);
 }
 
 QVariantMap ContextAdaptor::GetUserFocus()
 {
     QVariantMap map;
-    // 框架阶段返回空，各 Sensor 实现后聚合填充
-    map.insert(QStringLiteral("active_app"), QString());
-    map.insert(QStringLiteral("active_file"), QString());
-    map.insert(QStringLiteral("input_state"), QStringLiteral("unknown"));
+    if (m_windowSensor) {
+        auto winInfo = m_windowSensor->activeWindowInfo();
+        map.insert(QStringLiteral("active_app"), winInfo.value("app_name").toString());
+        map.insert(QStringLiteral("active_file"), QString());
+        map.insert(QStringLiteral("input_state"), QStringLiteral("unknown"));
+    } else {
+        map.insert(QStringLiteral("active_app"), QString());
+        map.insert(QStringLiteral("active_file"), QString());
+        map.insert(QStringLiteral("input_state"), QStringLiteral("unknown"));
+    }
     return map;
 }
 

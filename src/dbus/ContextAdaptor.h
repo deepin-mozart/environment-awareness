@@ -8,6 +8,8 @@
 namespace Awareness {
 
 class StorageController;
+class WindowSensor;
+class ClipboardSensor;
 
 /**
  * @brief D-Bus Context 接口适配器：实时获取当前上下文
@@ -27,6 +29,9 @@ class ContextAdaptor : public QDBusAbstractAdaptor
 public:
     explicit ContextAdaptor(StorageController *storage, QObject *parent = nullptr);
 
+    /// 设置 Sensor 引用（必须在 start() 之后调用）
+    void setSensors(WindowSensor *window, ClipboardSensor *clipboard);
+
 public slots:
     QVariantMap GetActiveWindow();
     QList<QVariantMap> GetRecentFiles(int limit);
@@ -37,6 +42,8 @@ public slots:
 
 private:
     StorageController *m_storage;
+    WindowSensor *m_windowSensor = nullptr;
+    ClipboardSensor *m_clipboardSensor = nullptr;
 };
 
 } // namespace Awareness

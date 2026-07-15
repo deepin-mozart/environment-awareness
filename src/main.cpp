@@ -10,7 +10,8 @@
 #include "sensors/BrowserSensor.h"
 #include "utils/Logger.h"
 
-#include <QCoreApplication>
+#include <QApplication>
+#include <QDBusMetaType>
 #include <QTimer>
 
 
@@ -19,8 +20,11 @@ using namespace Awareness;
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication app(argc, argv);
+    QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("deepin-environment-awareness"));
+
+    // 注册 D-Bus 元类型（QList<QVariantMap> 用于返回列表数据）
+    qDBusRegisterMetaType<QList<QVariantMap>>();
     app.setApplicationVersion(QStringLiteral("1.0.0"));
 
     // 初始化日志
@@ -92,6 +96,9 @@ int main(int argc, char *argv[])
     sensors.append(clipboardSensor);
     tryStartSensor(clipboardSensor);
 
+    // 将 sensor 引用传递给 ContextAdaptor
+    dbus.setContextSensors(windowSensor, clipboardSensor);
+
     // 键鼠输入模式监控
     auto *inputSensor = new InputSensor(&bus);
     sensors.append(inputSensor);
@@ -108,4 +115,6 @@ int main(int argc, char *argv[])
     tryStartSensor(browserSensor);
 
     awLogInfo() << "All sensors initialized, entering event loop";
+
+    return app.exec();
 }

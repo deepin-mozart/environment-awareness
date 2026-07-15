@@ -4,6 +4,11 @@
 
 #include <QDBusAbstractAdaptor>
 #include <QVariantMap>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QDir>
+#include <QFileInfo>
+#include <QDateTime>
 
 namespace Awareness {
 
@@ -29,6 +34,10 @@ public slots:
     QList<QVariantMap> SearchActions(const QString &keyword);
 
 private:
+    QList<QVariantMap> queryChromeHistory(int limit, const QString &keyword);
+    QList<QVariantMap> queryFirefoxHistory(int limit, const QString &keyword);
+    QString findBrowserHistoryPath(const QString &browserName);
+
     StorageController *m_storage;
 };
 

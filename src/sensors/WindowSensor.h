@@ -23,6 +23,9 @@ public:
     bool start() override;
     void stop() override;
 
+    /// 获取当前活动窗口信息（供 D-Bus Context 接口查询）
+    QVariantMap activeWindowInfo() const;
+
 private slots:
     void onActiveWindowChanged();
 
@@ -43,6 +46,7 @@ private:
     QString m_lastWindowTitle;
     QString m_lastAppName;
     qint64 m_lastWindowId = 0;
+    qint64 m_lastPid = 0;
 };
 
 } // namespace Awareness
