@@ -1,4 +1,5 @@
 #include "ContextAdaptor.h"
+#include "HistoryAdaptor.h"
 #include "../sensors/WindowSensor.h"
 #include "../sensors/ClipboardSensor.h"
 #include "../utils/Logger.h"
@@ -9,7 +10,12 @@ ContextAdaptor::ContextAdaptor(StorageController *storage, QObject *parent)
 {
 }
 
-void ContextAdaptor::setSensors(WindowSensor *window, ClipboardSensor *clipboard)
+void ContextAdaptor::setHistoryAdaptor(HistoryAdaptor *history)
+{
+    m_history = history;
+}
+
+ void ContextAdaptor::setSensors(WindowSensor *window, ClipboardSensor *clipboard)
 {
     m_windowSensor = window;
     m_clipboardSensor = clipboard;
@@ -55,10 +61,10 @@ QList<QVariantMap> ContextAdaptor::GetRecentActions(int limit)
 
 QList<QVariantMap> ContextAdaptor::GetBrowserTabs()
 {
-    QVariantMap filter;
-    filter.insert(QStringLiteral("type"), QStringLiteral("browser"));
-    filter.insert(QStringLiteral("action"), QStringLiteral("tab_changed"));
-    return m_storage->queryActions(filter);
+    if (m_history) {
+        return m_history->GetBrowserHistory(20, QString());
+    }
+    return {};
 }
 
 QVariantMap ContextAdaptor::GetUserFocus()

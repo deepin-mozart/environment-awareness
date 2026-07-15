@@ -8,6 +8,7 @@
 namespace Awareness {
 
 class StorageController;
+class HistoryAdaptor;
 class WindowSensor;
 class ClipboardSensor;
 
@@ -29,21 +30,24 @@ class ContextAdaptor : public QDBusAbstractAdaptor
 public:
     explicit ContextAdaptor(StorageController *storage, QObject *parent = nullptr);
 
+    /// 设置 HistoryAdaptor 引用（用于 GetBrowserTabs 委托）
+    void setHistoryAdaptor(HistoryAdaptor *history);
     /// 设置 Sensor 引用（必须在 start() 之后调用）
-    void setSensors(WindowSensor *window, ClipboardSensor *clipboard);
+     void setSensors(WindowSensor *window, ClipboardSensor *clipboard);
 
 public slots:
-    QVariantMap GetActiveWindow();
-    QList<QVariantMap> GetRecentFiles(int limit);
-    QVariantMap GetClipboardContent();
-    QList<QVariantMap> GetRecentActions(int limit);
-    QList<QVariantMap> GetBrowserTabs();
-    QVariantMap GetUserFocus();
+     QVariantMap GetActiveWindow();
+     QList<QVariantMap> GetRecentFiles(int limit);
+     QVariantMap GetClipboardContent();
+     QList<QVariantMap> GetRecentActions(int limit);
+     QList<QVariantMap> GetBrowserTabs();
+     QVariantMap GetUserFocus();
 
-private:
-    StorageController *m_storage;
-    WindowSensor *m_windowSensor = nullptr;
-    ClipboardSensor *m_clipboardSensor = nullptr;
+ private:
+     StorageController *m_storage;
+     WindowSensor *m_windowSensor = nullptr;
+     ClipboardSensor *m_clipboardSensor = nullptr;
+    HistoryAdaptor *m_history = nullptr;
 };
 
 } // namespace Awareness
