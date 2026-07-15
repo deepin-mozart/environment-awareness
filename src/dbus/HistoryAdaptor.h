@@ -38,6 +38,10 @@ private:
     QList<QVariantMap> queryFirefoxHistory(int limit, const QString &keyword);
     QString findBrowserHistoryPath(const QString &browserName);
 
+    /// 尝试打开 SQLite（可能被浏览器锁定），失败时复制临时副本再打开
+    QSqlDatabase openBrowserDb(const QString &path, const QString &prefix, QString &tmpPath);
+    void closeBrowserDb(const QString &connName, const QString &tmpPath);
+
     StorageController *m_storage;
 };
 
