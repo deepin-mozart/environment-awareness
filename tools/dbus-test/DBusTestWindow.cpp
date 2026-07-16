@@ -541,8 +541,9 @@ void DBusTestWindow::onGetActivityDigest()
                 .arg(result.value("clipboard_count").toInt()));
             for (const auto &app : apps) {
                 const auto m = app.toMap();
-                appendToLog(QStringLiteral("  app: %1, %2 ~ %3")
+                appendToLog(QStringLiteral("  app: %1 - %2, %3 ~ %4")
                     .arg(m.value("name").toString())
+                    .arg(m.value("window_title").toString())
                     .arg(QDateTime::fromMSecsSinceEpoch(m.value("start_time").toLongLong()).toString("HH:mm"))
                     .arg(QDateTime::fromMSecsSinceEpoch(m.value("end_time").toLongLong()).toString("HH:mm")));
             }

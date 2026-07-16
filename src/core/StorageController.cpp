@@ -1,4 +1,5 @@
 #include "StorageController.h"
+#include <algorithm>
 #include "../utils/Logger.h"
 
 #include <QDateTime>
@@ -430,26 +431,46 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
 
     QVariantList apps, files, urls;
 
-    // apps: 从 actions 按 app_name 去重，取最早和最晚时间戳
+    // apps: 按 app_name + window_title 去重，取每组的最早/最晚时间
+    // 合并同一 app_name 的不同窗口，取出现次数最多的 window_title 作为代表性标题
     {
         QSqlQuery q(m_db);
         q.prepare(QStringLiteral(
-            "SELECT app_name, MIN(timestamp) AS start_time, "
-            "MAX(timestamp) AS end_time, COUNT(*) AS event_count "
+            "SELECT app_name, window_title, MIN(timestamp) AS start_time, "
+            "MAX(timestamp) AS end_time, COUNT(*) AS cnt "
             "FROM actions WHERE app_name IS NOT NULL AND app_name != '' "
+            "AND window_title IS NOT NULL AND window_title != '' "
             "AND timestamp >= ? AND timestamp <= ? "
-            "GROUP BY app_name ORDER BY start_time ASC"));
+            "GROUP BY app_name, window_title ORDER BY app_name, cnt DESC"));
         q.addBindValue(since);
         q.addBindValue(until);
         if (q.exec()) {
+            QMap<QString, QVariantMap> merged; // app_name → merged entry
             while (q.next()) {
-                QVariantMap app;
-                app[QStringLiteral("name")] = q.value(0).toString();
-                app[QStringLiteral("start_time")] = q.value(1).toLongLong();
-                app[QStringLiteral("end_time")] = q.value(2).toLongLong();
-                app[QStringLiteral("event_count")] = q.value(3).toInt();
-                apps.append(app);
+                QString appName = q.value(0).toString();
+                qint64 st = q.value(2).toLongLong();
+                qint64 et = q.value(3).toLongLong();
+                int cnt = q.value(4).toInt();
+                if (!merged.contains(appName)) {
+                    // 第一条即 cnt 最大的（ORDER BY cnt DESC）
+                    QVariantMap entry;
+                    entry[QStringLiteral("name")] = appName;
+                    entry[QStringLiteral("window_title")] = q.value(1).toString();
+                    entry[QStringLiteral("start_time")] = st;
+                    entry[QStringLiteral("end_time")] = et;
+                    merged.insert(appName, entry);
+                } else {
+                    // 合并时间范围
+                    auto &entry = merged[appName];
+                    entry[QStringLiteral("start_time")] = (std::min)(entry.value("start_time").toLongLong(), st);
+                    entry[QStringLiteral("end_time")] = (std::max)(entry.value("end_time").toLongLong(), et);
+                }
             }
+            for (const auto &v : merged.values())
+                apps.append(QVariant::fromValue(v));
+            std::sort(apps.begin(), apps.end(), [](const QVariant &a, const QVariant &b) {
+                return a.toMap().value("start_time").toLongLong() < b.toMap().value("start_time").toLongLong();
+            });
         }
     }
 
