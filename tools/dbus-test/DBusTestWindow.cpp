@@ -533,19 +533,29 @@ void DBusTestWindow::onGetActivityDigest()
             }
             const auto apps = result.value("apps").toList();
             const auto files = result.value("files").toList();
-            const auto urls = result.value("urls").toList();
-            appendToLog(QStringLiteral("<< apps: %1, files: %2, urls: %3, clipboard: %4")
+            appendToLog(QStringLiteral("<< apps: %1, files: %2, clipboard: %3")
                 .arg(apps.size())
                 .arg(files.size())
-                .arg(urls.size())
                 .arg(result.value("clipboard_count").toInt()));
             for (const auto &app : apps) {
                 const auto m = app.toMap();
-                appendToLog(QStringLiteral("  app: %1 - %2, %3 ~ %4")
+                const auto startTime = QDateTime::fromMSecsSinceEpoch(m.value("start_time").toLongLong());
+                const auto endTime = QDateTime::fromMSecsSinceEpoch(m.value("end_time").toLongLong());
+                const QString timeFmt = QStringLiteral("MM-dd HH:mm");
+                QString timeStr;
+                if (startTime.date() == endTime.date()) {
+                    timeStr = QStringLiteral("%1 ~ %2")
+                        .arg(startTime.toString("HH:mm"))
+                        .arg(endTime.toString("HH:mm"));
+                } else {
+                    timeStr = QStringLiteral("%1 ~ %2")
+                        .arg(startTime.toString(timeFmt))
+                        .arg(endTime.toString(timeFmt));
+                }
+                appendToLog(QStringLiteral("  app: %1 - %2, %3")
                     .arg(m.value("name").toString())
                     .arg(m.value("window_title").toString())
-                    .arg(QDateTime::fromMSecsSinceEpoch(m.value("start_time").toLongLong()).toString("HH:mm"))
-                    .arg(QDateTime::fromMSecsSinceEpoch(m.value("end_time").toLongLong()).toString("HH:mm")));
+                    .arg(timeStr));
             }
             for (const auto &file : files) {
                 const auto m = file.toMap();
@@ -553,12 +563,6 @@ void DBusTestWindow::onGetActivityDigest()
                     .arg(m.value("action").toString())
                     .arg(m.value("file_path").toString())
                     .arg(m.value("content_preview").toString()));
-            }
-            for (const auto &url : urls) {
-                const auto m = url.toMap();
-                appendToLog(QStringLiteral("  url: %1 (%2)")
-                    .arg(m.value("title").toString())
-                    .arg(m.value("browser").toString()));
             }
             const auto clips = result.value("clipboard_preview").toList();
             if (!clips.isEmpty()) {

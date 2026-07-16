@@ -429,7 +429,7 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
     digest[QStringLiteral("since")] = since;
     digest[QStringLiteral("until")] = until;
 
-    QVariantList apps, files, urls;
+    QVariantList apps, files;
 
     // apps: 按 app_name + window_title 去重，取每组的最早/最晚时间
     // 合并同一 app_name 的不同窗口，取出现次数最多的 window_title 作为代表性标题
@@ -495,31 +495,6 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
             }
         }
     }
-
-    // urls: 浏览器活动在 actions 中以 window 类型记录，
-    // 通过 app_name 匹配浏览器，window_title 包含页面标题
-    {
-        QSqlQuery q(m_db);
-        q.prepare(QStringLiteral(
-            "SELECT DISTINCT window_title, MAX(timestamp) AS ts, app_name "
-            "FROM actions WHERE type='window' "
-            "AND app_name IN ('chrome','firefox','deepin-browser') "
-            "AND window_title IS NOT NULL AND window_title != '' "
-            "AND timestamp >= ? AND timestamp <= ? "
-            "GROUP BY window_title ORDER BY ts DESC"));
-        q.addBindValue(since);
-        q.addBindValue(until);
-        if (q.exec()) {
-            while (q.next()) {
-                QVariantMap url;
-                url[QStringLiteral("title")] = q.value(0).toString();
-                url[QStringLiteral("timestamp")] = q.value(1).toLongLong();
-                url[QStringLiteral("browser")] = q.value(2).toString();
-                urls.append(url);
-            }
-        }
-    }
-
     // clipboard: 最近10条的内容预览
     {
         QSqlQuery q(m_db);
@@ -541,7 +516,6 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
 
     digest[QStringLiteral("apps")] = apps;
     digest[QStringLiteral("files")] = files;
-    digest[QStringLiteral("urls")] = urls;
     return digest;
 }
 
