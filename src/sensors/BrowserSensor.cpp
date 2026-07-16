@@ -90,6 +90,10 @@ void BrowserSensor::discoverBrowsers()
             home + "/.config/microsoft-edge/%1/History",
             home + "/.config/microsoft-edge/%1/History-journal"
         }},
+        {QStringLiteral("deepin-browser"), {
+            home + "/.config/browser/%1/History",
+            home + "/.config/browser/%1/History-journal"
+        }},
         {QStringLiteral("brave"), {
             home + "/.config/BraveSoftware/Brave-Browser/%1/History",
             home + "/.config/BraveSoftware/Brave-Browser/%1/History-journal"
