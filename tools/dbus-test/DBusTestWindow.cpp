@@ -28,12 +28,12 @@ void DBusTestWindow::setupUI()
     auto *central = new QWidget(this);
     setCentralWidget(central);
     auto *mainLayout = new QHBoxLayout(central);
+    // 左侧：功能面板，右侧：输出面板（水平分割，可拖动）
+    auto *hSplitter = new QSplitter(Qt::Horizontal);
 
-    // 左侧：功能面板
     m_tabWidget = new QTabWidget;
-    m_tabWidget->setFixedWidth(420);
-    mainLayout->addWidget(m_tabWidget);
-
+    m_tabWidget->setMinimumWidth(280);
+    hSplitter->addWidget(m_tabWidget);
     // 右侧：输出面板（上下分割）
     auto *splitter = new QSplitter(Qt::Vertical);
 
@@ -63,8 +63,12 @@ void DBusTestWindow::setupUI()
 
     splitter->setStretchFactor(0, 3);
     splitter->setStretchFactor(1, 2);
-    mainLayout->addWidget(splitter, 1);
-
+    hSplitter->addWidget(splitter);
+    hSplitter->setStretchFactor(0, 0);   // 左侧按钮面板不自动拉伸
+    hSplitter->setStretchFactor(1, 1);   // 右侧输出面板自动拉伸
+    // 设置初始宽度比例
+    hSplitter->setSizes(QList<int>{420, 580});
+    mainLayout->addWidget(hSplitter);
     // ========== Tab 1: Context ==========
     auto *contextTab = new QWidget;
     auto *ctxLayout = new QVBoxLayout(contextTab);
