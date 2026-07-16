@@ -1,7 +1,7 @@
 # 环境感知模块设计文档
 
-> 日期：2026-07-14
-> 状态：已确认，待实现
+> 日期：2026-07-14（更新于 2026-07-16）
+> 状态：已实现核心功能，持续迭代中
 
 ## 1. 概述
 
@@ -94,7 +94,7 @@ Object path:  /org/deepin/EnvironmentAwareness
 |---|---|---|---|
 | `QueryActions` | `a{sv}:filter` | `aa{sv}` | 通用查询：支持 type, app, keyword, since, until, limit, offset 任意组合 |
 | `GetActionStats` | `a{sv}:filter` | `a{sv}` | 统计：各类型操作次数、活跃时长、最常用应用 |
-| `GetActivityDigest` | `i:since, i:until` | `a{sv}` | 去重视图：按应用/文件/URL 维度去重归组，不做语义推断 |
+| `GetActivityDigest` | `i:since, i:until` | `a{sv}` | 结构化摘要：apps（含 window_titles 列表）+ files + clipboard_count，相邻同 app 合并 |
 | `GetRecentFile` | `i:limit` | `aa{sv}` | 实时获取最近编辑的文本文档（XDG recent + inotify） |
 | `GetBrowserHistory` | `i:limit, s:keyword?` | `aa{sv}` | 查询浏览器历史记录（标题/URL/访问时间/访问次数） |
 | `GetBrowserBookmarks` | `i:limit, s:folder?` | `aa{sv}` | 查询浏览器书签列表 |
@@ -107,37 +107,46 @@ Object path:  /org/deepin/EnvironmentAwareness
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `GetActivityDigest` | `i:since, i:until` | `a{sv}` | 按时间范围内的原始事件，按应用/文件/URL 维度去重归组，返回结构化事实，不做任何语义推断 |
+| `GetActivityDigest` | `i:since, i:until` | `a{sv}` | 从 actions 表聚合：apps（window_titles 列表 + 合并相邻同 app）+ files（action + content_preview）+ clipboard_count |
 
 返回结构：
 ```json
 {
-  "period": { "since": 1784100000000, "until": 1784186400000 },
+  "since": 1784100000000,
+  "until": 1784186400000,
   "apps": [
-    { "name": "code", "start_time": 1784112000000, "end_time": 1784117400000, "files": ["main.cpp", "WindowSensor.cpp"] },
-    { "name": "deepin-browser", "start_time": 1784120000000, "end_time": 1784121200000, "urls": ["https://...", "..."] }
+    {
+      "name": "chrome",
+      "window_titles": ["Google Gemini - Google Chrome", "研发终端信息.xlsx - Google Chrome"],
+      "start_time": 1784112000000,
+      "end_time": 1784117400000,
+      "event_count": 120
+    },
+    {
+      "name": "code",
+      "window_titles": ["main.cpp - pi - Visual Studio Code"],
+      "start_time": 1784120000000,
+      "end_time": 1784121200000,
+      "event_count": 45
+    }
   ],
   "files": [
-    { "path": "/home/user/project/main.cpp", "app": "code", "last_modified": 1784150000000 },
-    { "path": "/home/user/docs/design.md", "app": "code", "last_modified": 1784140000000 }
-  ],
-  "urls": [
-    { "url": "https://example.com/doc", "title": "...", "browser": "chrome", "timestamp": 1784130000000 }
+    { "file_path": "/home/user/project/main.cpp", "action": "modify", "content_preview": "int main() {", "last_modified": 1784150000000 }
   ],
   "clipboard_count": 3
 }
 ```
 
 聚合规则：
-- **apps**：从 `app_sessions` 表按时间范围聚合，同一应用连续 session 合并，列出关联的文件/URL
-- **files**：从 `actions` 中 type=file 的记录去重（同路径只保留最新一条）
-- **urls**：从 `actions` 中 type=browser 的记录去重（同 URL 只保留最新一条），URL 查询参数中的 token/session/key 等敏感参数已脱敏
+- **数据来源**：全部从 `actions` 表聚合（`app_sessions` 和 `browser_visits` 表运行时不写入，不作为数据源）
+- **apps**：按 `(app_name, window_title)` 分组，取每组 MIN/MAX 时间戳和事件计数；相邻同 `app_name` 的条目在 C++ 侧合并为一条，`window_titles` 聚合为列表，时间取最远范围，`event_count` 求和。浏览器 URL 已作为 `window_title` 体现在 apps 中，不单独列出
+- **files**：从 `actions` 中 `type='file'` 的记录按 `file_path` 去重（同路径只保留最新一条），包含 action 类型（create/modify）和 content_preview
 - **clipboard_count**：仅返回剪贴板变化次数，不返回内容（隐私保护）
-- 默认不返回 `metadata`、`content_preview` 等大字段
+- **时间格式**：同一天显示 `HH:mm ~ HH:mm`，跨天显示 `MM-dd HH:mm ~ MM-dd HH:mm`
 
 **第二层：下钻明细（智能体看过摘要后按需查询）**
 
-已有的 `QueryActions(filter)` 和 `GetTimeline(since, until, limit)` 完全满足，智能体根据摘要中发现的时间段或应用，缩小范围精确查询。
+已有的 `QueryActions(filter)` 完全满足下钻需求，智能体根据摘要中发现的时间段或应用，缩小范围精确查询。
 
 **智能体调用模式示例**：
 ``+// 第一步：获取一天的摘要（返回几十 KB 以内）
