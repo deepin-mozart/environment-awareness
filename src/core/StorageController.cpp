@@ -453,11 +453,11 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
         }
     }
 
-    // files: type=file 去重（同路径只保留最新一条）
+    // files: 按路径去重，保留最新操作类型和内容预览
     {
         QSqlQuery q(m_db);
         q.prepare(QStringLiteral(
-            "SELECT file_path, app_name, MAX(timestamp) AS ts "
+            "SELECT file_path, action, content_preview, MAX(timestamp) AS ts "
             "FROM actions WHERE type='file' AND file_path IS NOT NULL "
             "AND file_path != '' AND timestamp >= ? AND timestamp <= ? "
             "GROUP BY file_path ORDER BY ts DESC"));
@@ -467,8 +467,9 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
             while (q.next()) {
                 QVariantMap file;
                 file[QStringLiteral("file_path")] = q.value(0).toString();
-                file[QStringLiteral("app")] = q.value(1).toString();
-                file[QStringLiteral("last_modified")] = q.value(2).toLongLong();
+                file[QStringLiteral("action")] = q.value(1).toString();
+                file[QStringLiteral("content_preview")] = q.value(2).toString();
+                file[QStringLiteral("last_modified")] = q.value(3).toLongLong();
                 files.append(file);
             }
         }
@@ -498,18 +499,23 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
         }
     }
 
-    // clipboard_count: 只返回次数
+    // clipboard: 最近10条的内容预览
     {
         QSqlQuery q(m_db);
         q.prepare(QStringLiteral(
-            "SELECT COUNT(*) FROM actions WHERE type='clipboard' "
-            "AND timestamp >= ? AND timestamp <= ?"));
+            "SELECT content_preview FROM actions WHERE type='clipboard' "
+            "AND content_preview IS NOT NULL AND content_preview != '' "
+            "AND timestamp >= ? AND timestamp <= ? "
+            "ORDER BY timestamp DESC LIMIT 10"));
         q.addBindValue(since);
         q.addBindValue(until);
-        if (q.exec() && q.next())
-            digest[QStringLiteral("clipboard_count")] = q.value(0).toInt();
-        else
-            digest[QStringLiteral("clipboard_count")] = 0;
+        QVariantList clips;
+        if (q.exec()) {
+            while (q.next())
+                clips.append(q.value(0).toString());
+        }
+        digest[QStringLiteral("clipboard_preview")] = clips;
+        digest[QStringLiteral("clipboard_count")] = clips.size();
     }
 
     digest[QStringLiteral("apps")] = apps;

@@ -541,23 +541,29 @@ void DBusTestWindow::onGetActivityDigest()
                 .arg(result.value("clipboard_count").toInt()));
             for (const auto &app : apps) {
                 const auto m = app.toMap();
-                appendToLog(QStringLiteral("  app: %1, start=%2, end=%3, events=%4")
+                appendToLog(QStringLiteral("  app: %1, %2 ~ %3")
                     .arg(m.value("name").toString())
-                    .arg(m.value("start_time").toLongLong())
-                    .arg(m.value("end_time").toLongLong())
-                    .arg(m.value("event_count").toInt()));
+                    .arg(QDateTime::fromMSecsSinceEpoch(m.value("start_time").toLongLong()).toString("HH:mm"))
+                    .arg(QDateTime::fromMSecsSinceEpoch(m.value("end_time").toLongLong()).toString("HH:mm")));
             }
             for (const auto &file : files) {
                 const auto m = file.toMap();
-                appendToLog(QStringLiteral("  file: %1 (via %2)")
+                appendToLog(QStringLiteral("  %1: %2 (%3)")
+                    .arg(m.value("action").toString())
                     .arg(m.value("file_path").toString())
-                    .arg(m.value("app").toString()));
+                    .arg(m.value("content_preview").toString()));
             }
             for (const auto &url : urls) {
                 const auto m = url.toMap();
                 appendToLog(QStringLiteral("  url: %1 (%2)")
                     .arg(m.value("title").toString())
                     .arg(m.value("browser").toString()));
+            }
+            const auto clips = result.value("clipboard_preview").toList();
+            if (!clips.isEmpty()) {
+                appendToLog(QStringLiteral("  clipboard:"));
+                for (const auto &c : clips)
+                    appendToLog(QStringLiteral("    > %1").arg(c.toString()));
             }
         } else {
             appendToLog(QStringLiteral("<< error: %1").arg(reply.error().message()));
