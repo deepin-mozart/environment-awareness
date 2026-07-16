@@ -101,6 +101,60 @@ Object path:  /org/deepin/EnvironmentAwareness
 | `GetBrowserBookmarks` | `i:limit, s:folder?` | `aa{sv}` | 查询浏览器书签列表 |
 | `SearchBrowserHistory` | `s:keyword, i:limit` | `aa{sv}` | 按关键词搜索浏览器历史记录 |
 
+#### 3.4.1 分层查询策略（解决大时间范围数据量问题）
+
+智能体查询一周或更长时间范围时，原始 actions 明细可达上万条，超出模型上下文窗口。采用**摘要下钻**两层策略：先用去重视图获取结构化事实，再按需下钻明细。
+
+**第一层：去重视图（适合大时间范围）**
+
+| 方法 | 参数 | 返回 | 说明 |
+|---|---|---|---|
+| `GetActivityDigest` | `i:since, i:until` | `a{sv}` | 按时间范围内的原始事件，按应用/文件/URL 维度去重归组，返回结构化事实，不做任何语义推断 |
+
+返回结构：
+```json
+{
+  "period": { "since": 1784100000000, "until": 1784186400000 },
+  "apps": [
+    { "name": "code", "start_time": 1784112000000, "end_time": 1784117400000, "files": ["main.cpp", "WindowSensor.cpp"] },
+    { "name": "deepin-browser", "start_time": 1784120000000, "end_time": 1784121200000, "urls": ["https://...", "..."] }
+  ],
+  "files": [
+    { "path": "/home/user/project/main.cpp", "app": "code", "last_modified": 1784150000000 },
+    { "path": "/home/user/docs/design.md", "app": "code", "last_modified": 1784140000000 }
+  ],
+  "urls": [
+    { "url": "https://example.com/doc", "title": "...", "browser": "chrome", "timestamp": 1784130000000 }
+  ],
+  "clipboard_count": 3
+}
+```
+
+聚合规则：
+- **apps**：从 `app_sessions` 表按时间范围聚合，同一应用连续 session 合并，列出关联的文件/URL
+- **files**：从 `actions` 中 type=file 的记录去重（同路径只保留最新一条）
+- **urls**：从 `actions` 中 type=browser 的记录去重（同 URL 只保留最新一条），URL 查询参数中的 token/session/key 等敏感参数已脱敏
+- **clipboard_count**：仅返回剪贴板变化次数，不返回内容（隐私保护）
+- 默认不返回 `metadata`、`content_preview` 等大字段
+
+**第二层：下钻明细（智能体看过摘要后按需查询）**
+
+已有的 `QueryActions(filter)` 和 `GetTimeline(since, until, limit)` 完全满足，智能体根据摘要中发现的时间段或应用，缩小范围精确查询。
+
+**智能体调用模式示例**：
+``+// 第一步：获取一天的摘要（返回几十 KB 以内）
+digest = History.GetActivityDigest(since=today_start, until=now)
+// → 发现 VSCode 活跃 3 小时，编辑了 main.cpp, WindowSensor.cpp
+
+// 第二步：下钻感兴趣的部分
+actions = History.QueryActions({
+    since: today_start, until: now,
+    type: "file", app: "code"
+})
+// → 只拉 VSCode 的文件操作，几百条而不是上万条
+
+
+
 ### 3.5 System 接口 — 系统状态
 
 
