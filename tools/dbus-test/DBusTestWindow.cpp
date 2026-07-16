@@ -552,9 +552,13 @@ void DBusTestWindow::onGetActivityDigest()
                         .arg(startTime.toString(timeFmt))
                         .arg(endTime.toString(timeFmt));
                 }
+                const auto titles = m.value("window_titles").toStringList();
+                QString titleStr = titles.size() == 1
+                    ? titles.first()
+                    : QStringLiteral("{%1}").arg(titles.join(QStringLiteral(", ")));
                 appendToLog(QStringLiteral("  app: %1 - %2, %3")
                     .arg(m.value("name").toString())
-                    .arg(m.value("window_title").toString())
+                    .arg(titleStr)
                     .arg(timeStr));
             }
             for (const auto &file : files) {

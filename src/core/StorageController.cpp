@@ -445,15 +445,38 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
         q.addBindValue(since);
         q.addBindValue(until);
         if (q.exec()) {
+            QString lastApp;
+            QVariantMap merged;
             while (q.next()) {
-                QVariantMap entry;
-                entry[QStringLiteral("name")] = q.value(0).toString();
-                entry[QStringLiteral("window_title")] = q.value(1).toString();
-                entry[QStringLiteral("start_time")] = q.value(2).toLongLong();
-                entry[QStringLiteral("end_time")] = q.value(3).toLongLong();
-                entry[QStringLiteral("event_count")] = q.value(4).toInt();
-                apps.append(QVariant::fromValue(entry));
+                QString appName = q.value(0).toString();
+                qint64 st = q.value(2).toLongLong();
+                qint64 et = q.value(3).toLongLong();
+                int cnt = q.value(4).toInt();
+                if (appName != lastApp) {
+                    if (!merged.isEmpty())
+                        apps.append(QVariant::fromValue(merged));
+                    merged.clear();
+                    lastApp = appName;
+                }
+                if (merged.isEmpty()) {
+                    merged[QStringLiteral("name")] = appName;
+                    merged[QStringLiteral("window_titles")] = QStringList{q.value(1).toString()};
+                    merged[QStringLiteral("start_time")] = st;
+                    merged[QStringLiteral("end_time")] = et;
+                    merged[QStringLiteral("event_count")] = cnt;
+                } else {
+                    auto titles = merged.value("window_titles").toStringList();
+                    titles.append(q.value(1).toString());
+                    merged[QStringLiteral("window_titles")] = titles;
+                    if (st < merged.value("start_time").toLongLong())
+                        merged[QStringLiteral("start_time")] = st;
+                    if (et > merged.value("end_time").toLongLong())
+                        merged[QStringLiteral("end_time")] = et;
+                    merged[QStringLiteral("event_count")] = merged.value("event_count").toInt() + cnt;
+                }
             }
+            if (!merged.isEmpty())
+                apps.append(QVariant::fromValue(merged));
         }
     }
 
