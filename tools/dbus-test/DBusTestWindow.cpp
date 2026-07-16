@@ -3,7 +3,45 @@
 #include <QScrollBar>
 #include <QMessageBox>
 #include <QJsonDocument>
+#include <QJsonDocument>
 #include <QJsonObject>
+#include <QDBusArgument>
+
+/// 递归反序列化 QDBusArgument → QVariant（支持嵌套 map/list）
+static QVariant demarshall(const QDBusArgument &arg)
+{
+    if (arg.currentType() == QDBusArgument::MapType) {
+        QVariantMap map;
+        arg.beginMap();
+        while (!arg.atEnd()) {
+            QString key;
+            QDBusVariant value;
+            arg.beginMapEntry();
+            arg >> key >> value;
+            arg.endMapEntry();
+            if (value.variant().canConvert<QDBusArgument>())
+                map.insert(key, demarshall(value.variant().value<QDBusArgument>()));
+            else
+                map.insert(key, value.variant());
+        }
+        arg.endMap();
+        return map;
+    } else if (arg.currentType() == QDBusArgument::ArrayType) {
+        QVariantList list;
+        arg.beginArray();
+        while (!arg.atEnd()) {
+            QVariant elem;
+            arg >> elem;
+            if (elem.canConvert<QDBusArgument>())
+                list.append(demarshall(elem.value<QDBusArgument>()));
+            else
+                list.append(elem);
+        }
+        arg.endArray();
+        return list;
+    }
+    return QVariant();
+}
 // 构造常量
 static const char *kContextInterface = "org.deepin.EnvironmentAwareness.Context";
 static const char *kHistoryInterface = "org.deepin.EnvironmentAwareness.History";
@@ -484,26 +522,38 @@ void DBusTestWindow::onGetActivityDigest()
     connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() {
         QDBusPendingReply<QVariantMap> reply = *w;
         if (reply.isValid()) {
-            const QVariantMap result = reply.value();
+            const QVariantMap raw = reply.value();
+            // 递归反序列化嵌套的 QDBusArgument
+            QVariantMap result;
+            for (auto it = raw.begin(); it != raw.end(); ++it) {
+                if (it.value().canConvert<QDBusArgument>())
+                    result.insert(it.key(), demarshall(it.value().value<QDBusArgument>()));
+                else
+                    result.insert(it.key(), it.value());
+            }
+            const auto apps = result.value("apps").toList();
+            const auto files = result.value("files").toList();
+            const auto urls = result.value("urls").toList();
             appendToLog(QStringLiteral("<< apps: %1, files: %2, urls: %3, clipboard: %4")
-                .arg(result.value("apps").toList().size())
-                .arg(result.value("files").toList().size())
-                .arg(result.value("urls").toList().size())
+                .arg(apps.size())
+                .arg(files.size())
+                .arg(urls.size())
                 .arg(result.value("clipboard_count").toInt()));
-            for (const auto &app : result.value("apps").toList()) {
+            for (const auto &app : apps) {
                 const auto m = app.toMap();
-                appendToLog(QStringLiteral("  app: %1, start=%2, end=%3")
+                appendToLog(QStringLiteral("  app: %1, start=%2, end=%3, events=%4")
                     .arg(m.value("name").toString())
                     .arg(m.value("start_time").toLongLong())
-                    .arg(m.value("end_time").toLongLong()));
+                    .arg(m.value("end_time").toLongLong())
+                    .arg(m.value("event_count").toInt()));
             }
-            for (const auto &file : result.value("files").toList()) {
+            for (const auto &file : files) {
                 const auto m = file.toMap();
                 appendToLog(QStringLiteral("  file: %1 (via %2)")
                     .arg(m.value("file_path").toString())
                     .arg(m.value("app").toString()));
             }
-            for (const auto &url : result.value("urls").toList()) {
+            for (const auto &url : urls) {
                 const auto m = url.toMap();
                 appendToLog(QStringLiteral("  url: %1 (%2)")
                     .arg(m.value("title").toString())
