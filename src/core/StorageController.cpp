@@ -311,6 +311,11 @@ QList<QVariantMap> StorageController::queryActions(const QVariantMap &filter)
         clauses << QStringLiteral("app_name = ?");
         binds << filter.value(QStringLiteral("app"));
     }
+    if (filter.contains(QStringLiteral("keyword"))) {
+        clauses << QStringLiteral("(window_title LIKE ? OR file_path LIKE ? OR content_preview LIKE ? OR app_name LIKE ?)");
+        QString kw = QStringLiteral("%") + filter.value(QStringLiteral("keyword")).toString() + QStringLiteral("%");
+        binds << kw << kw << kw << kw;
+    }
     if (filter.contains(QStringLiteral("since"))) {
         clauses << QStringLiteral("timestamp >= ?");
         binds << filter.value(QStringLiteral("since"));

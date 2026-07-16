@@ -124,14 +124,24 @@ void DBusTestWindow::setupUI()
     auto *histLayout = new QVBoxLayout(historyTab);
 
     // QueryActions
-    auto *filterGroup = new QGroupBox(QStringLiteral("QueryActions (filter)"));
-    auto *filterGrid = new QGridLayout(filterGroup);
-    filterGrid->addWidget(new QLabel(QStringLiteral("Key:")), 0, 0);
-    m_filterKeyEdit = new QLineEdit(QStringLiteral("type"));
-    filterGrid->addWidget(m_filterKeyEdit, 0, 1);
-    filterGrid->addWidget(new QLabel(QStringLiteral("Value:")), 1, 0);
-    m_filterValueEdit = new QLineEdit(QStringLiteral("window"));
-    filterGrid->addWidget(m_filterValueEdit, 1, 1);
+    auto *filterGroup = new QGroupBox(QStringLiteral("QueryActions"));
+    auto *filterLayout = new QVBoxLayout(filterGroup);
+    m_filterEdit = new QTextEdit;
+    m_filterEdit->setMaximumHeight(100);
+    m_filterEdit->setPlaceholderText(
+        QStringLiteral("每行一个过滤条件，留空则不过滤。支持的键：\n"
+                       "  type     — 事件类型: window/file/clipboard/input/browser\n"
+                       "  app      — 应用名: e.g. code, deepin-editor\n"
+                       "  keyword  — 模糊搜索: 匹配标题/路径/内容/应用名\n"
+                       "  since    — 起始时间戳(毫秒)\n"
+                       "  until    — 结束时间戳(毫秒)\n"
+                       "  limit    — 最大返回条数\n"
+                       "  offset   — 跳过前N条\n"
+                       "示例：\n"
+                       "  type=window\n"
+                       "  app=code\n"
+                       "  limit=20"));
+    filterLayout->addWidget(m_filterEdit);
     histLayout->addWidget(filterGroup);
 
     auto historyCreateBtn = [&](const QString &text, std::function<void()> fn) {
@@ -143,15 +153,6 @@ void DBusTestWindow::setupUI()
     };
 
     historyCreateBtn(QStringLiteral("QueryActions"), [this]() { onQueryActions(); });
-
-    auto *appRow = new QHBoxLayout;
-    appRow->addWidget(new QLabel(QStringLiteral("App Name:")));
-    m_appNameEdit = new QLineEdit;
-    m_appNameEdit->setPlaceholderText(QStringLiteral("e.g. deepin-editor"));
-    appRow->addWidget(m_appNameEdit);
-    histLayout->addLayout(appRow);
-
-    historyCreateBtn(QStringLiteral("QueryActionsByApp"), [this]() { onQueryActionsByApp(); });
     historyCreateBtn(QStringLiteral("GetActionStats"), [this]() { onGetActionStats(); });
 
     auto *timelineGroup = new QGroupBox(QStringLiteral("GetActivityDigest"));
@@ -171,16 +172,20 @@ void DBusTestWindow::setupUI()
     histLayout->addWidget(timelineGroup);
     historyCreateBtn(QStringLiteral("GetActivityDigest"), [this]() { onGetActivityDigest(); });
 
-    auto *keywordRow = new QHBoxLayout;
-    keywordRow->addWidget(new QLabel(QStringLiteral("Keyword:")));
+    // GetBrowserHistory
+    auto *browserRow = new QHBoxLayout;
+    browserRow->addWidget(new QLabel(QStringLiteral("Limit:")));
+    m_limitSpin = new QSpinBox;
+    m_limitSpin->setRange(1, 1000);
+    m_limitSpin->setValue(20);
+    browserRow->addWidget(m_limitSpin);
+    browserRow->addWidget(new QLabel(QStringLiteral("  Keyword:")));
     m_keywordEdit = new QLineEdit;
-    m_keywordEdit->setPlaceholderText(QStringLiteral("e.g. deepin"));
-    keywordRow->addWidget(m_keywordEdit);
-    histLayout->addLayout(keywordRow);
-
+    m_keywordEdit->setPlaceholderText(QStringLiteral("留空获取全部，填入按关键词过滤"));
+    browserRow->addWidget(m_keywordEdit);
+    histLayout->addLayout(browserRow);
     historyCreateBtn(QStringLiteral("GetBrowserHistory"), [this]() { onGetBrowserHistory(); });
-    historyCreateBtn(QStringLiteral("SearchBrowserHistory"), [this]() { onSearchBrowserHistory(); });
-    historyCreateBtn(QStringLiteral("SearchActions"), [this]() { onSearchActions(); });
+
     histLayout->addStretch();
     m_tabWidget->addTab(historyTab, QStringLiteral("History"));
 
@@ -432,32 +437,43 @@ void DBusTestWindow::onGetUserFocus()
 void DBusTestWindow::onQueryActions()
 {
     QVariantMap filter;
-    filter.insert(m_filterKeyEdit->text(), m_filterValueEdit->text());
-    appendToLog(QStringLiteral(">> QueryActions(filter={%1:%2})")
-                .arg(m_filterKeyEdit->text(), m_filterValueEdit->text()));
-    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("QueryActions", filter), this);
+    QString text = m_filterEdit->toPlainText();
+    QStringList parts;
+    for (const auto &line : text.split('\n', QString::SkipEmptyParts)) {
+        auto eq = line.indexOf('=');
+        if (eq > 0) {
+            QString key = line.left(eq).trimmed();
+            QString val = line.mid(eq + 1).trimmed();
+            // 数值类型自动转换
+            bool ok;
+            qint64 num = val.toLongLong(&ok);
+            if (ok && (key == "since" || key == "until" || key == "limit" || key == "offset"))
+                filter.insert(key, num);
+            else
+                filter.insert(key, val);
+            parts << key + "=" + val;
+        }
+    }
+    appendToLog(QStringLiteral(">> QueryActions(filter={%1})").arg(parts.join(", ")));
+    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("QueryActions", QVariant::fromValue(filter)), this);
     connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "QueryActions"); });
-}
-
-void DBusTestWindow::onQueryActionsByApp()
-{
-    QString app = m_appNameEdit->text();
-    int limit = m_limitSpin->value();
-    appendToLog(QStringLiteral(">> QueryActionsByApp(app=%1, limit=%2)").arg(app).arg(limit));
-    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("QueryActionsByApp", app, limit), this);
-    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "QueryActionsByApp"); });
 }
 
 void DBusTestWindow::onGetActionStats()
 {
-    QVariantMap filter;
-    filter.insert(m_filterKeyEdit->text(), m_filterValueEdit->text());
-    appendToLog(QStringLiteral(">> GetActionStats(filter={%1:%2})")
-                .arg(m_filterKeyEdit->text(), m_filterValueEdit->text()));
-    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("GetActionStats", filter), this);
+    appendToLog(QStringLiteral(">> GetActionStats()"));
+    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("GetActionStats", QVariantMap()), this);
     connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "GetActionStats"); });
 }
 
+void DBusTestWindow::onGetBrowserHistory()
+{
+    int limit = m_limitSpin->value();
+    QString keyword = m_keywordEdit->text();
+    appendToLog(QStringLiteral(">> GetBrowserHistory(limit=%1, keyword=%2)").arg(limit).arg(keyword));
+    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("GetBrowserHistory", limit, keyword), this);
+    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "GetBrowserHistory"); });
+}
 void DBusTestWindow::onGetActivityDigest()
 {
     qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -475,7 +491,6 @@ void DBusTestWindow::onGetActivityDigest()
                 .arg(result.value("files").toList().size())
                 .arg(result.value("urls").toList().size())
                 .arg(result.value("clipboard_count").toInt()));
-            // 详细输出每个 app
             for (const auto &app : result.value("apps").toList()) {
                 const auto m = app.toMap();
                 appendToLog(QStringLiteral("  app: %1, start=%2, end=%3")
@@ -500,32 +515,6 @@ void DBusTestWindow::onGetActivityDigest()
         }
         w->deleteLater();
     });
-}
-
-void DBusTestWindow::onGetBrowserHistory()
-{
-    int limit = m_limitSpin->value();
-    QString keyword = m_keywordEdit->text();
-    appendToLog(QStringLiteral(">> GetBrowserHistory(limit=%1, keyword=%2)").arg(limit).arg(keyword));
-    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("GetBrowserHistory", limit, keyword), this);
-    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "GetBrowserHistory"); });
-}
-
-void DBusTestWindow::onSearchBrowserHistory()
-{
-    QString keyword = m_keywordEdit->text();
-    int limit = m_limitSpin->value();
-    appendToLog(QStringLiteral(">> SearchBrowserHistory(keyword=%1, limit=%2)").arg(keyword).arg(limit));
-    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("SearchBrowserHistory", keyword, limit), this);
-    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "SearchBrowserHistory"); });
-}
-
-void DBusTestWindow::onSearchActions()
-{
-    QString keyword = m_keywordEdit->text();
-    appendToLog(QStringLiteral(">> SearchActions(keyword=%1)").arg(keyword));
-    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("SearchActions", keyword), this);
-    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "SearchActions"); });
 }
 
 // ========== System 接口 ==========

@@ -67,15 +67,6 @@ QList<QVariantMap> HistoryAdaptor::GetBrowserBookmarks(int limit, const QString 
     return m_storage->queryBrowserBookmarks(limit, folder);
 }
 
-QList<QVariantMap> HistoryAdaptor::SearchBrowserHistory(const QString &keyword, int limit)
-{
-    return GetBrowserHistory(limit, keyword);
-}
-
-QList<QVariantMap> HistoryAdaptor::SearchActions(const QString &keyword)
-{
-    return m_storage->searchActions(keyword);
-}
 
 QString HistoryAdaptor::findBrowserHistoryPath(const QString &browserName)
 {

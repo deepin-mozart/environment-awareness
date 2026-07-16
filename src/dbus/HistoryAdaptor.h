@@ -30,8 +30,6 @@ public slots:
     QList<QVariantMap> GetRecentFile(int limit);
     QList<QVariantMap> GetBrowserHistory(int limit, const QString &keyword);
     QList<QVariantMap> GetBrowserBookmarks(int limit, const QString &folder);
-    QList<QVariantMap> SearchBrowserHistory(const QString &keyword, int limit);
-    QList<QVariantMap> SearchActions(const QString &keyword);
 
 private:
     QList<QVariantMap> queryChromiumHistory(int limit, const QString &keyword);

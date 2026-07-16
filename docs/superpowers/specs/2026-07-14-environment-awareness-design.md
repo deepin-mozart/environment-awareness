@@ -92,14 +92,12 @@ Object path:  /org/deepin/EnvironmentAwareness
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `QueryActions` | `a{sv}:filter` | `aa{sv}` | 按条件查询：type, app, since, until, limit, offset |
-| `QueryActionsByApp` | `s:app, i:limit` | `aa{sv}` | 查询特定应用的操作历史 |
+| `QueryActions` | `a{sv}:filter` | `aa{sv}` | 通用查询：支持 type, app, keyword, since, until, limit, offset 任意组合 |
 | `GetActionStats` | `a{sv}:filter` | `a{sv}` | 统计：各类型操作次数、活跃时长、最常用应用 |
 | `GetActivityDigest` | `i:since, i:until` | `a{sv}` | 去重视图：按应用/文件/URL 维度去重归组，不做语义推断 |
 | `GetRecentFile` | `i:limit` | `aa{sv}` | 实时获取最近编辑的文本文档（XDG recent + inotify） |
 | `GetBrowserHistory` | `i:limit, s:keyword?` | `aa{sv}` | 查询浏览器历史记录（标题/URL/访问时间/访问次数） |
 | `GetBrowserBookmarks` | `i:limit, s:folder?` | `aa{sv}` | 查询浏览器书签列表 |
-| `SearchBrowserHistory` | `s:keyword, i:limit` | `aa{sv}` | 按关键词搜索浏览器历史记录 |
 
 #### 3.4.1 分层查询策略（解决大时间范围数据量问题）
 

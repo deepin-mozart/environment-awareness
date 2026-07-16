@@ -38,12 +38,9 @@ private slots:
 
     // History 接口
     void onQueryActions();
-    void onQueryActionsByApp();
     void onGetActionStats();
     void onGetActivityDigest();
     void onGetBrowserHistory();
-    void onSearchBrowserHistory();
-    void onSearchActions();
 
     // System 接口
     void onGetSystemStatus();
@@ -90,12 +87,9 @@ private:
     QSpinBox *m_limitSpin = nullptr;
     QSpinBox *m_sinceSpin = nullptr;
     QSpinBox *m_untilSpin = nullptr;
-    QLineEdit *m_appNameEdit = nullptr;
     QLineEdit *m_keywordEdit = nullptr;
-    QLineEdit *m_filterKeyEdit = nullptr;
-    QLineEdit *m_filterValueEdit = nullptr;
-
-    int m_eventCount = 0;
+    QTextEdit *m_filterEdit = nullptr;
     static constexpr const char *kService = "org.deepin.EnvironmentAwareness";
     static constexpr const char *kPath = "/org/deepin/EnvironmentAwareness";
+    int m_eventCount = 0;
 };
