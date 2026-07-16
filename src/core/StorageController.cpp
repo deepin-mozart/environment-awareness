@@ -417,19 +417,96 @@ QVariantMap StorageController::actionStats(const QVariantMap &filter)
     return stats;
 }
 
-QList<QVariantMap> StorageController::timeline(qint64 since, qint64 until)
+QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
 {
-    QSqlQuery q(m_db);
-    q.prepare(QStringLiteral("SELECT * FROM actions WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC"));
-    q.addBindValue(since);
-    q.addBindValue(until);
+    QVariantMap digest;
+    digest[QStringLiteral("since")] = since;
+    digest[QStringLiteral("until")] = until;
 
-    QList<QVariantMap> results;
-    if (q.exec()) {
-        while (q.next())
-            results.append(queryRowToMap(q));
+    QVariantList apps, files, urls;
+
+    // apps: 从 app_sessions 聚合，同一应用合并连续 session
+    {
+        QSqlQuery q(m_db);
+        q.prepare(QStringLiteral(
+            "SELECT app_name, MIN(start_time) AS start_time, "
+            "MAX(COALESCE(end_time, (SELECT MAX(timestamp) FROM actions))) AS end_time, "
+            "COUNT(*) AS session_count FROM app_sessions "
+            "WHERE start_time >= ? AND start_time <= ? "
+            "GROUP BY app_name ORDER BY start_time ASC"));
+        q.addBindValue(since);
+        q.addBindValue(until);
+        if (q.exec()) {
+            while (q.next()) {
+                QVariantMap app;
+                app[QStringLiteral("name")] = q.value(0).toString();
+                app[QStringLiteral("start_time")] = q.value(1).toLongLong();
+                app[QStringLiteral("end_time")] = q.value(2).toLongLong();
+                apps.append(app);
+            }
+        }
     }
-    return results;
+
+    // files: type=file 去重（同路径只保留最新一条）
+    {
+        QSqlQuery q(m_db);
+        q.prepare(QStringLiteral(
+            "SELECT DISTINCT file_path, app_name, MAX(timestamp) AS ts "
+            "FROM actions WHERE type='file' AND file_path IS NOT NULL "
+            "AND file_path != '' AND timestamp >= ? AND timestamp <= ? "
+            "GROUP BY file_path ORDER BY ts DESC"));
+        q.addBindValue(since);
+        q.addBindValue(until);
+        if (q.exec()) {
+            while (q.next()) {
+                QVariantMap file;
+                file[QStringLiteral("file_path")] = q.value(0).toString();
+                file[QStringLiteral("app")] = q.value(1).toString();
+                file[QStringLiteral("last_modified")] = q.value(2).toLongLong();
+                files.append(file);
+            }
+        }
+    }
+
+    // urls: type=browser 去重（同 URL 只保留最新一条）
+    {
+        QSqlQuery q(m_db);
+        q.prepare(QStringLiteral(
+            "SELECT DISTINCT window_title, MAX(timestamp) AS ts, app_name "
+            "FROM actions WHERE type='browser' AND window_title IS NOT NULL "
+            "AND window_title != '' AND timestamp >= ? AND timestamp <= ? "
+            "GROUP BY window_title ORDER BY ts DESC"));
+        q.addBindValue(since);
+        q.addBindValue(until);
+        if (q.exec()) {
+            while (q.next()) {
+                QVariantMap url;
+                url[QStringLiteral("title")] = q.value(0).toString();
+                url[QStringLiteral("timestamp")] = q.value(1).toLongLong();
+                url[QStringLiteral("browser")] = q.value(2).toString();
+                urls.append(url);
+            }
+        }
+    }
+
+    // clipboard_count: 只返回次数
+    {
+        QSqlQuery q(m_db);
+        q.prepare(QStringLiteral(
+            "SELECT COUNT(*) FROM actions WHERE type='clipboard' "
+            "AND timestamp >= ? AND timestamp <= ?"));
+        q.addBindValue(since);
+        q.addBindValue(until);
+        if (q.exec() && q.next())
+            digest[QStringLiteral("clipboard_count")] = q.value(0).toInt();
+        else
+            digest[QStringLiteral("clipboard_count")] = 0;
+    }
+
+    digest[QStringLiteral("apps")] = apps;
+    digest[QStringLiteral("files")] = files;
+    digest[QStringLiteral("urls")] = urls;
+    return digest;
 }
 
 QList<QVariantMap> StorageController::searchActions(const QString &keyword)

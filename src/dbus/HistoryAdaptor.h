@@ -26,7 +26,7 @@ public slots:
     QList<QVariantMap> QueryActions(const QVariantMap &filter);
     QList<QVariantMap> QueryActionsByApp(const QString &app, int limit);
     QVariantMap GetActionStats(const QVariantMap &filter);
-    QList<QVariantMap> GetTimeline(qint64 since, qint64 until);
+    QVariantMap GetActivityDigest(qint64 since, qint64 until);
     QList<QVariantMap> GetRecentFile(int limit);
     QList<QVariantMap> GetBrowserHistory(int limit, const QString &keyword);
     QList<QVariantMap> GetBrowserBookmarks(int limit, const QString &folder);

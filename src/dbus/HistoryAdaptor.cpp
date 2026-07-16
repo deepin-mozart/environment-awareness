@@ -28,9 +28,9 @@ QVariantMap HistoryAdaptor::GetActionStats(const QVariantMap &filter)
     return m_storage->actionStats(filter);
 }
 
-QList<QVariantMap> HistoryAdaptor::GetTimeline(qint64 since, qint64 until)
+QVariantMap HistoryAdaptor::GetActivityDigest(qint64 since, qint64 until)
 {
-    return m_storage->timeline(since, until);
+    return m_storage->activityDigest(since, until);
 }
 
 QList<QVariantMap> HistoryAdaptor::GetRecentFile(int limit)

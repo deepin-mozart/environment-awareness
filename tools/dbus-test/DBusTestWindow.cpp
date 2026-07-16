@@ -154,7 +154,7 @@ void DBusTestWindow::setupUI()
     historyCreateBtn(QStringLiteral("QueryActionsByApp"), [this]() { onQueryActionsByApp(); });
     historyCreateBtn(QStringLiteral("GetActionStats"), [this]() { onGetActionStats(); });
 
-    auto *timelineGroup = new QGroupBox(QStringLiteral("GetTimeline"));
+    auto *timelineGroup = new QGroupBox(QStringLiteral("GetActivityDigest"));
     auto *timelineGrid = new QGridLayout(timelineGroup);
     timelineGrid->addWidget(new QLabel(QStringLiteral("Since (h ago):")), 0, 0);
     m_sinceSpin = new QSpinBox;
@@ -169,7 +169,7 @@ void DBusTestWindow::setupUI()
     m_untilSpin->setSuffix(QStringLiteral("h"));
     timelineGrid->addWidget(m_untilSpin, 1, 1);
     histLayout->addWidget(timelineGroup);
-    historyCreateBtn(QStringLiteral("GetTimeline"), [this]() { onGetTimeline(); });
+    historyCreateBtn(QStringLiteral("GetActivityDigest"), [this]() { onGetActivityDigest(); });
 
     auto *keywordRow = new QHBoxLayout;
     keywordRow->addWidget(new QLabel(QStringLiteral("Keyword:")));
@@ -458,14 +458,48 @@ void DBusTestWindow::onGetActionStats()
     connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "GetActionStats"); });
 }
 
-void DBusTestWindow::onGetTimeline()
+void DBusTestWindow::onGetActivityDigest()
 {
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     qint64 since = now - qint64(m_sinceSpin->value()) * 3600000LL;
     qint64 until = now - qint64(m_untilSpin->value()) * 3600000LL;
-    appendToLog(QStringLiteral(">> GetTimeline(since=%1, until=%2)").arg(since).arg(until));
-    auto *w = new QDBusPendingCallWatcher(m_historyIface->asyncCall("GetTimeline", since, until), this);
-    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() { handlePendingCall(w, "GetTimeline"); });
+    appendToLog(QStringLiteral(">> GetActivityDigest(since=%1, until=%2)").arg(since).arg(until));
+    auto *w = new QDBusPendingCallWatcher(
+        m_historyIface->asyncCall("GetActivityDigest", since, until), this);
+    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() {
+        QDBusPendingReply<QVariantMap> reply = *w;
+        if (reply.isValid()) {
+            const QVariantMap result = reply.value();
+            appendToLog(QStringLiteral("<< apps: %1, files: %2, urls: %3, clipboard: %4")
+                .arg(result.value("apps").toList().size())
+                .arg(result.value("files").toList().size())
+                .arg(result.value("urls").toList().size())
+                .arg(result.value("clipboard_count").toInt()));
+            // 详细输出每个 app
+            for (const auto &app : result.value("apps").toList()) {
+                const auto m = app.toMap();
+                appendToLog(QStringLiteral("  app: %1, start=%2, end=%3")
+                    .arg(m.value("name").toString())
+                    .arg(m.value("start_time").toLongLong())
+                    .arg(m.value("end_time").toLongLong()));
+            }
+            for (const auto &file : result.value("files").toList()) {
+                const auto m = file.toMap();
+                appendToLog(QStringLiteral("  file: %1 (via %2)")
+                    .arg(m.value("file_path").toString())
+                    .arg(m.value("app").toString()));
+            }
+            for (const auto &url : result.value("urls").toList()) {
+                const auto m = url.toMap();
+                appendToLog(QStringLiteral("  url: %1 (%2)")
+                    .arg(m.value("title").toString())
+                    .arg(m.value("browser").toString()));
+            }
+        } else {
+            appendToLog(QStringLiteral("<< error: %1").arg(reply.error().message()));
+        }
+        w->deleteLater();
+    });
 }
 
 void DBusTestWindow::onGetBrowserHistory()

@@ -40,7 +40,7 @@ private slots:
     void onQueryActions();
     void onQueryActionsByApp();
     void onGetActionStats();
-    void onGetTimeline();
+    void onGetActivityDigest();
     void onGetBrowserHistory();
     void onSearchBrowserHistory();
     void onSearchActions();

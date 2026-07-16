@@ -65,8 +65,8 @@ public:
     /// 统计信息
     QVariantMap actionStats(const QVariantMap &filter);
 
-    /// 时间线查询
-    QList<QVariantMap> timeline(qint64 since, qint64 until);
+    /// 去重视图（大时间范围的结构化事实聚合）
+    QVariantMap activityDigest(qint64 since, qint64 until);
 
     /// 搜索操作记录
     QList<QVariantMap> searchActions(const QString &keyword);
