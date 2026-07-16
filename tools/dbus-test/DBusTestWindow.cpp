@@ -127,7 +127,6 @@ void DBusTestWindow::setupUI()
     auto *filterGroup = new QGroupBox(QStringLiteral("QueryActions"));
     auto *filterLayout = new QVBoxLayout(filterGroup);
     m_filterEdit = new QTextEdit;
-    m_filterEdit->setMaximumHeight(100);
     m_filterEdit->setPlaceholderText(
         QStringLiteral("每行一个过滤条件，留空则不过滤。支持的键：\n"
                        "  type     — 事件类型: window/file/clipboard/input/browser\n"

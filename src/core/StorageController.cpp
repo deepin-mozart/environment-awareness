@@ -430,14 +430,14 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
 
     QVariantList apps, files, urls;
 
-    // apps: 从 app_sessions 聚合，同一应用合并连续 session
+    // apps: 从 actions 按 app_name 去重，取最早和最晚时间戳
     {
         QSqlQuery q(m_db);
         q.prepare(QStringLiteral(
-            "SELECT app_name, MIN(start_time) AS start_time, "
-            "MAX(COALESCE(end_time, (SELECT MAX(timestamp) FROM actions))) AS end_time, "
-            "COUNT(*) AS session_count FROM app_sessions "
-            "WHERE start_time >= ? AND start_time <= ? "
+            "SELECT app_name, MIN(timestamp) AS start_time, "
+            "MAX(timestamp) AS end_time, COUNT(*) AS event_count "
+            "FROM actions WHERE app_name IS NOT NULL AND app_name != '' "
+            "AND timestamp >= ? AND timestamp <= ? "
             "GROUP BY app_name ORDER BY start_time ASC"));
         q.addBindValue(since);
         q.addBindValue(until);
@@ -447,6 +447,7 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
                 app[QStringLiteral("name")] = q.value(0).toString();
                 app[QStringLiteral("start_time")] = q.value(1).toLongLong();
                 app[QStringLiteral("end_time")] = q.value(2).toLongLong();
+                app[QStringLiteral("event_count")] = q.value(3).toInt();
                 apps.append(app);
             }
         }
@@ -456,7 +457,7 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
     {
         QSqlQuery q(m_db);
         q.prepare(QStringLiteral(
-            "SELECT DISTINCT file_path, app_name, MAX(timestamp) AS ts "
+            "SELECT file_path, app_name, MAX(timestamp) AS ts "
             "FROM actions WHERE type='file' AND file_path IS NOT NULL "
             "AND file_path != '' AND timestamp >= ? AND timestamp <= ? "
             "GROUP BY file_path ORDER BY ts DESC"));
@@ -473,13 +474,16 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
         }
     }
 
-    // urls: type=browser 去重（同 URL 只保留最新一条）
+    // urls: 浏览器活动在 actions 中以 window 类型记录，
+    // 通过 app_name 匹配浏览器，window_title 包含页面标题
     {
         QSqlQuery q(m_db);
         q.prepare(QStringLiteral(
             "SELECT DISTINCT window_title, MAX(timestamp) AS ts, app_name "
-            "FROM actions WHERE type='browser' AND window_title IS NOT NULL "
-            "AND window_title != '' AND timestamp >= ? AND timestamp <= ? "
+            "FROM actions WHERE type='window' "
+            "AND app_name IN ('chrome','firefox','deepin-browser') "
+            "AND window_title IS NOT NULL AND window_title != '' "
+            "AND timestamp >= ? AND timestamp <= ? "
             "GROUP BY window_title ORDER BY ts DESC"));
         q.addBindValue(since);
         q.addBindValue(until);
