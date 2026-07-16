@@ -4,6 +4,7 @@
 #include <QSqlError>
 #include <QStandardPaths>
 #include <QFile>
+#include <algorithm>
 
 namespace Awareness {
 
@@ -48,7 +49,7 @@ QList<QVariantMap> HistoryAdaptor::GetBrowserHistory(int limit, const QString &k
     }
 
     // fallback: 直接读取浏览器 History 文件
-    auto chromeResults = queryChromeHistory(limit, keyword);
+    auto chromeResults = queryChromiumHistory(limit, keyword);
     if (!chromeResults.isEmpty()) {
         return chromeResults;
     }
@@ -101,6 +102,11 @@ QString HistoryAdaptor::findBrowserHistoryPath(const QString &browserName)
             QString path = home + "/.config/BraveSoftware/Brave-Browser/" + profile + "/History";
             if (QFileInfo::exists(path)) return path;
         }
+    } else if (browserName == "deepin-browser") {
+        for (const auto &profile : defaultProfiles) {
+            QString path = home + "/.config/browser/" + profile + "/History";
+            if (QFileInfo::exists(path)) return path;
+        }
     } else if (browserName == "firefox") {
         // Firefox: 查找 places.sqlite
         QString profileDir = home + "/.mozilla/firefox/";
@@ -149,56 +155,67 @@ void HistoryAdaptor::closeBrowserDb(const QString &connName, const QString &tmpP
     }
 }
 
-QList<QVariantMap> HistoryAdaptor::queryChromeHistory(int limit, const QString &keyword)
+QList<QVariantMap> HistoryAdaptor::queryChromiumHistory(int limit, const QString &keyword)
 {
-    QString path = findBrowserHistoryPath("google-chrome");
-    if (path.isEmpty()) path = findBrowserHistoryPath("chromium");
-    if (path.isEmpty()) path = findBrowserHistoryPath("microsoft-edge");
-    if (path.isEmpty()) path = findBrowserHistoryPath("brave");
-    if (path.isEmpty()) return {};
+    // 遍历所有 Chromium 内核浏览器
+    QStringList chromiumBrowsers = {
+        "google-chrome", "chromium", "microsoft-edge", "brave", "deepin-browser"
+    };
 
-    QString tmpPath;
-    QSqlDatabase db = openBrowserDb(path, "dbus_chrome", tmpPath);
-    if (!db.isOpen()) {
-        awLogWarning() << "HistoryAdaptor: failed to open Chrome History";
-        return {};
-    }
-    QList<QVariantMap> results;
+    QList<QVariantMap> allResults;
     static constexpr qint64 WEBKIT_EPOCH_DELTA = 11644473600000000LL;
-    {
-        QSqlQuery q(db);
-        QString sql;
-        if (keyword.isEmpty()) {
-            sql = QStringLiteral(
-                "SELECT urls.url, urls.title, urls.last_visit_time, urls.visit_count "
-                "FROM urls ORDER BY urls.last_visit_time DESC LIMIT %1").arg(limit);
-        } else {
-            QString escaped = keyword;
-            escaped.replace("'", "''");
-            sql = "SELECT urls.url, urls.title, urls.last_visit_time, urls.visit_count "
-                  "FROM urls WHERE urls.title LIKE '%" + escaped + "%' "
-                  "OR urls.url LIKE '%" + escaped + "%' "
-                  "ORDER BY urls.last_visit_time DESC LIMIT " + QString::number(limit);
-        }
 
-        if (q.exec(sql)) {
-            while (q.next()) {
-                QVariantMap item;
-                item.insert(QStringLiteral("url"), q.value(0).toString());
-                item.insert(QStringLiteral("title"), q.value(1).toString());
-                qint64 webkitTime = q.value(2).toLongLong();
-                qint64 timestamp = (webkitTime - WEBKIT_EPOCH_DELTA) / 1000;
-                item.insert(QStringLiteral("timestamp"), timestamp);
-                item.insert(QStringLiteral("visit_count"), q.value(3).toInt());
-                item.insert(QStringLiteral("browser"), QStringLiteral("chrome"));
-                results.append(item);
+    for (const auto &browserName : chromiumBrowsers) {
+        QString path = findBrowserHistoryPath(browserName);
+        if (path.isEmpty()) continue;
+
+        QString tmpPath;
+        QSqlDatabase db = openBrowserDb(path, "dbus_chrome", tmpPath);
+        if (!db.isOpen()) continue;
+
+        {
+            QSqlQuery q(db);
+            QString sql;
+            if (keyword.isEmpty()) {
+                sql = QStringLiteral(
+                    "SELECT urls.url, urls.title, urls.last_visit_time, urls.visit_count "
+                    "FROM urls ORDER BY urls.last_visit_time DESC LIMIT %1").arg(limit);
+            } else {
+                QString escaped = keyword;
+                escaped.replace("'", "''");
+                sql = "SELECT urls.url, urls.title, urls.last_visit_time, urls.visit_count "
+                      "FROM urls WHERE urls.title LIKE '%" + escaped + "%' "
+                      "OR urls.url LIKE '%" + escaped + "%' "
+                      "ORDER BY urls.last_visit_time DESC LIMIT " + QString::number(limit);
             }
-        } else {
-            awLogWarning() << "HistoryAdaptor: Chrome history query failed:" << q.lastError().text();
+
+            if (q.exec(sql)) {
+                while (q.next()) {
+                    QVariantMap item;
+                    item.insert(QStringLiteral("url"), q.value(0).toString());
+                    item.insert(QStringLiteral("title"), q.value(1).toString());
+                    qint64 webkitTime = q.value(2).toLongLong();
+                    qint64 timestamp = (webkitTime - WEBKIT_EPOCH_DELTA) / 1000;
+                    item.insert(QStringLiteral("timestamp"), timestamp);
+                    item.insert(QStringLiteral("visit_count"), q.value(3).toInt());
+                    item.insert(QStringLiteral("browser"), browserName);
+                    allResults.append(item);
+                }
+            } else {
+                awLogWarning() << "HistoryAdaptor: Chrome history query failed:" << q.lastError().text();
+            }
         }
+        closeBrowserDb(db.connectionName(), tmpPath);
     }
-    closeBrowserDb(db.connectionName(), tmpPath);
-     return results;
+
+    // 按时间降序排列，取 limit 条
+    std::sort(allResults.begin(), allResults.end(), [](const QVariantMap &a, const QVariantMap &b) {
+        return a.value("timestamp").toLongLong() > b.value("timestamp").toLongLong();
+    });
+    if (allResults.size() > limit)
+        allResults = allResults.mid(0, limit);
+
+    return allResults;
 }
 
 QList<QVariantMap> HistoryAdaptor::queryFirefoxHistory(int limit, const QString &keyword)

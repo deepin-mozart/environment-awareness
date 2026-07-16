@@ -34,7 +34,7 @@ public slots:
     QList<QVariantMap> SearchActions(const QString &keyword);
 
 private:
-    QList<QVariantMap> queryChromeHistory(int limit, const QString &keyword);
+    QList<QVariantMap> queryChromiumHistory(int limit, const QString &keyword);
     QList<QVariantMap> queryFirefoxHistory(int limit, const QString &keyword);
     QString findBrowserHistoryPath(const QString &browserName);
 
