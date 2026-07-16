@@ -501,23 +501,19 @@ QVariantMap StorageController::activityDigest(qint64 since, qint64 until)
             }
         }
     }
-    // clipboard: 最近10条的内容预览
+    // clipboard: 仅返回计数
     {
         QSqlQuery q(m_db);
         q.prepare(QStringLiteral(
-            "SELECT content_preview FROM actions WHERE type='clipboard' "
+            "SELECT COUNT(*) FROM actions WHERE type='clipboard' "
             "AND content_preview IS NOT NULL AND content_preview != '' "
-            "AND timestamp >= ? AND timestamp <= ? "
-            "ORDER BY timestamp DESC LIMIT 10"));
+            "AND timestamp >= ? AND timestamp <= ?"));
         q.addBindValue(since);
         q.addBindValue(until);
-        QVariantList clips;
-        if (q.exec()) {
-            while (q.next())
-                clips.append(q.value(0).toString());
-        }
-        digest[QStringLiteral("clipboard_preview")] = clips;
-        digest[QStringLiteral("clipboard_count")] = clips.size();
+        int count = 0;
+        if (q.exec() && q.next())
+            count = q.value(0).toInt();
+        digest[QStringLiteral("clipboard_count")] = count;
     }
 
     digest[QStringLiteral("apps")] = apps;

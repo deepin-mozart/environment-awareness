@@ -568,12 +568,7 @@ void DBusTestWindow::onGetActivityDigest()
                     .arg(m.value("file_path").toString())
                     .arg(m.value("content_preview").toString()));
             }
-            const auto clips = result.value("clipboard_preview").toList();
-            if (!clips.isEmpty()) {
-                appendToLog(QStringLiteral("  clipboard:"));
-                for (const auto &c : clips)
-                    appendToLog(QStringLiteral("    > %1").arg(c.toString()));
-            }
+            appendToLog(QStringLiteral("  clipboard: %1").arg(result.value("clipboard_count").toInt()));
         } else {
             appendToLog(QStringLiteral("<< error: %1").arg(reply.error().message()));
         }
