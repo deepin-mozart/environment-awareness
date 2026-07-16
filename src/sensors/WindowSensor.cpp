@@ -160,8 +160,8 @@ void WindowSensor::onActiveWindowChanged()
 {
     QString currentTitle = getCurrentActiveWindow();
 
-    // 没有变化则跳过
-    if (currentTitle == m_lastWindowTitle && !currentTitle.isEmpty()) {
+    // 没有变化则跳过（空值相等也跳过，避免连续空事件）
+    if (currentTitle == m_lastWindowTitle) {
         return;
     }
 

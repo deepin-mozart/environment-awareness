@@ -45,8 +45,26 @@ void DBusTestWindow::setupUI()
     m_logOutput->setFont(QFont("Monospace", 9));
     logLayout->addWidget(m_logOutput);
     auto *clearLogBtn = new QPushButton(QStringLiteral("清空日志"));
-    logLayout->addWidget(clearLogBtn);
+    auto *btnRow = new QHBoxLayout;
+    btnRow->addWidget(clearLogBtn);
+    auto *clearDbBtn = new QPushButton(QStringLiteral("清除数据库"));
+    clearDbBtn->setStyleSheet("QPushButton { color: #e74c3c; }");
+    btnRow->addWidget(clearDbBtn);
+    logLayout->addLayout(btnRow);
     connect(clearLogBtn, &QPushButton::clicked, m_logOutput, &QTextEdit::clear);
+    connect(clearDbBtn, &QPushButton::clicked, this, [this]() {
+        QDBusInterface iface("org.deepin.EnvironmentAwareness",
+                             "/org/deepin/EnvironmentAwareness",
+                             "org.deepin.EnvironmentAwareness.Config",
+                             QDBusConnection::sessionBus());
+        auto reply = iface.call("ClearAll");
+        if (reply.type() == QDBusMessage::ReplyMessage) {
+            int count = reply.arguments().first().toInt();
+            m_logOutput->append(QStringLiteral("已清除 %1 条记录").arg(count));
+        } else {
+            m_logOutput->append(QStringLiteral("清除失败: %1").arg(reply.errorMessage()));
+        }
+    });
     splitter->addWidget(logGroup);
 
     // 下：实时事件
