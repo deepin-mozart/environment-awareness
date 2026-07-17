@@ -279,6 +279,7 @@ S4 (100K): 预期 < 20 MB
 | `tests/bench/bench_sensors.py` | Sensor 精确率测试（ground truth 对比） |
 | `tests/bench/bench_resource.py` | 资源开销采样 |
 | `tests/bench/run_all.sh` | 一键运行 + 生成报告 |
+| `tests/bench/gen_charts.py` | 从结果 JSON 生成 PNG + HTML 图表 |
 
 ### 6.2 报告格式
 
@@ -323,8 +324,99 @@ S4 (100K): 预期 < 20 MB
 | P1 | 资源开销 | daemon 长期运行，内存泄漏是致命问题 |
 | P2 | Sensor 精确率 | 需要 ground truth 采集，实施成本较高 |
 | P3 | D-Bus 序列化 | 仅在 payload 较大时才可能成为瓶颈 |
+## 7. 图表生成
 
-## 7. 已知限制
+Benchmark 运行结束后，`gen_charts.py` 从结果 JSON 自动生成两套图表，输出到 `tests/bench/charts/<date>/`。
+
+### 7.1 数据中间格式
+
+所有 benchmark 脚本将结果写入统一的 `results_<date>.json`：
+
+```json
+{
+  "meta": { "commit": "abc123", "date": "2026-07-17", "qt_version": "5.15" },
+  "queries": [
+    { "method": "QueryActions", "scenario": "全量扫描", "scale": "S1", "p50": 1.2, "p95": 3.5, "max": 8.0, "threshold_p50": 2.0, "unit": "ms" },
+    ...
+  ],
+  "signals": [
+    { "signal": "WindowChanged", "p50": 15, "p95": 40, "max": 65, "unit": "ms" }
+  ],
+  "sensors": [
+    { "sensor": "Window", "recall": 97.5, "precision": 93.2, "app_name_acc": 98.1, "title_acc": 95.0, "unit": "%" }
+  ],
+  "resource": [
+    { "metric": "RSS", "time_min": 0, "value": 18, "unit": "MB" },
+    { "metric": "RSS", "time_min": 10, "value": 22, "unit": "MB" },
+    ...
+  ]
+}
+```
+
+### 7.2 静态 PNG 图表（matplotlib）
+
+生成以下图表，每张独立 PNG 文件：
+
+| 图表 | 类型 | 内容 |
+|---|---|---|
+| `query_latency.png` | 分组柱状图 | X=规模 S1-S5, Y=延迟(ms), 按 method+scenario 分组, P50/P95 双柱, 阈值线标注 |
+| `digest_latency.png` | 折线图 | X=时间范围(1h/1d/7d), Y=延迟, 4 条规模曲线 |
+| `signal_latency.png` | 水平条形图 | 各信号的 P50/P95/Max, 阈值竖线 |
+| `sensor_accuracy.png` | 分组柱状图 | 各 Sensor 的 Recall/Precision/app_name_acc/title_acc, 阈值线 95%/90% |
+| `rss_growth.png` | 折线图 | X=时间(min), Y=RSS(MB), 阈值线 40MB, 增长趋势标注 |
+| `cpu_usage.png` | 堆叠柱状图 | X=场景, Y=CPU%, 平均/峰值分层 |
+| `db_size.png` | 对数柱状图 | X=规模, Y=DB体积(KB), 对数轴 |
+| `summary_dashboard.png` | 2x3 仪表盘 | 上述核心图表缩略排列, 一页总览 |
+
+**样式约定**：
+- PASS 绿色 `#2ecc71`, WARN 黄色 `#f39c12`, FAIL 红色 `#e74c3c`
+- 超阈值数据点用红色标注
+- 每张图含标题、轴标签、图例、网格线
+
+### 7.3 交互式 HTML 图表（ECharts）
+
+生成单页 `dashboard.html`，内嵌 ECharts CDN（或离线 `echarts.min.js`），包含：
+
+| 面板 | 交互能力 |
+|---|---|
+| 查询性能 | 切换 P50/P95/Max, 按 method 筛选, 悬停显示精确数值 |
+| 信号延迟 | 条形图, 可切换信号类型 |
+| Sensor 精确率 | 雷达图(Recall/Precision/app_name_acc/title_acc) |
+| RSS 趋势 | 折线图, 可缩放时间轴, 阈值区域高亮 |
+| CPU 占用 | 堆叠柱状图, 可切换场景 |
+| DB 体积 | 对数柱状图, 可切换线性/对数轴 |
+
+**特性**：
+- 所有图表数据内嵌在 HTML 中（不依赖外部 JSON 文件）
+- 支持 Tab 切换不同维度
+- 顶部显示 commit/date/环境信息
+- 超阈值指标自动红色高亮
+
+### 7.4 依赖
+
+| 依赖 | 用途 | 安装 |
+|---|---|---|
+| matplotlib >= 3.5 | PNG 生成 | `pip install matplotlib` |
+| jinja2 >= 3.0 | HTML 模板 | `pip install jinja2` |
+| ECharts 5.x | 交互图表 | 离线放 `tests/bench/vendor/echarts.min.js` |
+
+### 7.5 触发方式
+
+```bash
+# 运行全部 benchmark + 生成图表
+./tests/bench/run_all.sh --scale S4
+
+# 仅生成图表（已有 results.json）
+python3 tests/bench/gen_charts.py tests/bench/results_2026-07-17.json
+
+# 输出
+#   tests/bench/charts/2026-07-17/*.png
+#   tests/bench/charts/2026-07-17/dashboard.html
+#   tests/bench/report_2026-07-17.md
+```
+
+
+## 8. 已知限制
 
 - **Wayland 适配**：当前所有 Sensor 为 X11 路径，benchmark 在 X11 会话下运行。Wayland 适配后需补充 Wayland benchmark。
 - **浏览器历史**：`GetBrowserHistory` 直接读浏览器 SQLite，性能依赖浏览器自身数据库大小，不在合成数据覆盖范围内。
