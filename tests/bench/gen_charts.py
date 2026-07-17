@@ -409,10 +409,10 @@ body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; backgro
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="showTab('queries')">查询性能</div>
-  <div class="tab" onclick="showTab('signals')">信号延迟</div>
-  <div class="tab" onclick="showTab('sensors')">Sensor 精确率</div>
-  <div class="tab" onclick="showTab('resource')">资源开销</div>
+  <div class="tab active" onclick="showTab('queries', this)">查询性能</div>
+  <div class="tab" onclick="showTab('signals', this)">信号延迟</div>
+  <div class="tab" onclick="showTab('sensors', this)">Sensor 精确率</div>
+  <div class="tab" onclick="showTab('resource', this)">资源开销</div>
 </div>
 
 <div id="queries" class="panel active">
@@ -435,13 +435,21 @@ body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; backgro
 </div>
 
 <script>
-function showTab(id) {
+// 全局图表注册表
+var charts = {};
+function showTab(id, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  event.target.classList.add('active');
-  // 触发重绘
-  setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+  btn.classList.add('active');
+  // 等待 panel 显示后再 resize 图表
+  setTimeout(function() {
+    var panel = document.getElementById(id);
+    panel.querySelectorAll('.chart').forEach(function(el) {
+      var ch = charts[el.id];
+      if (ch) ch.resize();
+    });
+  }, 50);
 }
 </script>
 """
@@ -457,7 +465,7 @@ function showTab(id) {
 
     # 查询性能 ECharts
     html += "<script>\n"
-    html += "const chartQuery = echarts.init(document.getElementById('chart-query'));\n"
+    charts_to_init = []
 
     if query_methods:
         methods = list(query_methods.keys())
@@ -484,7 +492,8 @@ function showTab(id) {
                     "data": values,
                 })
 
-        html += f"chartQuery.setOption({{\n"
+        html += "charts['chart-query'] = echarts.init(document.getElementById('chart-query'));\n"
+        html += f"charts['chart-query'].setOption({{\n"
         html += f"  title: {{ text: '查询延迟对比' }},\n"
         html += f"  tooltip: {{ trigger: 'axis' }},\n"
         html += f"  legend: {{ top: 30 }},\n"
@@ -493,12 +502,11 @@ function showTab(id) {
         html += f"  series: {json.dumps(series, ensure_ascii=False)}\n"
         html += f"}});\n"
 
-    # Digest 图表
-    html += "const chartDigest = echarts.init(document.getElementById('chart-digest'));\n"
+    html += "charts['chart-digest'] = echarts.init(document.getElementById('chart-digest'));\n"
     digest_items = [q for q in queries if q.get("method") == "GetActivityDigest"]
     if digest_items:
         scenarios = [q["scenario"] for q in digest_items]
-        html += f"chartDigest.setOption({{\n"
+        html += f"charts['chart-digest'].setOption({{\n"
         html += f"  title: {{ text: 'GetActivityDigest 延迟' }},\n"
         html += f"  tooltip: {{ trigger: 'axis' }},\n"
         html += f"  legend: {{ data: ['P50','P95','Max'] }},\n"
@@ -512,13 +520,12 @@ function showTab(id) {
         html += f"}});\n"
 
     # 信号延迟
-    html += "const chartSignal = echarts.init(document.getElementById('chart-signal'));\n"
+    html += "charts['chart-signal'] = echarts.init(document.getElementById('chart-signal'));\n"
     signals = data.get("signals", [])
     if signals:
         signal_names = [s["signal"] for s in signals]
-        html += f"chartSignal.setOption({{\n"
+        html += f"charts['chart-signal'].setOption({{\n"
         html += f"  title: {{ text: '信号投递延迟' }},\n"
-        html += f"  tooltip: {{ trigger: 'axis' }},\n"
         html += f"  legend: {{ data: ['P50','P95','Max'] }},\n"
         html += f"  xAxis: {{ type: 'category', data: {json.dumps(signal_names, ensure_ascii=False)} }},\n"
         html += f"  yAxis: {{ type: 'value', name: 'ms' }},\n"
@@ -530,11 +537,11 @@ function showTab(id) {
         html += f"}});\n"
 
     # Sensor 精确率
-    html += "const chartSensor = echarts.init(document.getElementById('chart-sensor'));\n"
+    html += "charts['chart-sensor'] = echarts.init(document.getElementById('chart-sensor'));\n"
     sensors = data.get("sensors", [])
     if sensors:
         sensor_names = [s["sensor"] for s in sensors]
-        html += f"chartSensor.setOption({{\n"
+        html += f"charts['chart-sensor'].setOption({{\n"
         html += f"  title: {{ text: 'Sensor 精确率' }},\n"
         html += f"  tooltip: {{ trigger: 'axis' }},\n"
         html += f"  legend: {{ data: ['Recall','Precision','appName准确率','Title准确率'] }},\n"
@@ -549,12 +556,12 @@ function showTab(id) {
         html += f"}});\n"
 
     # RSS 趋势
-    html += "const chartRss = echarts.init(document.getElementById('chart-rss'));\n"
+    html += "charts['chart-rss'] = echarts.init(document.getElementById('chart-rss'));\n"
     rss_data = [r for r in data.get("resource", []) if r.get("metric") == "RSS"]
     if rss_data:
         times = [r.get("time_min", 0) for r in rss_data]
         rss_mbs = [round(r.get("rss_mb", r.get("rss_kb", 0) / 1024), 1) for r in rss_data]
-        html += f"chartRss.setOption({{\n"
+        html += f"charts['chart-rss'].setOption({{\n"
         html += f"  title: {{ text: 'Daemon 内存占用' }},\n"
         html += f"  tooltip: {{ trigger: 'axis' }},\n"
         html += f"  xAxis: {{ type: 'category', data: {json.dumps(times)} }},\n"
@@ -564,11 +571,11 @@ function showTab(id) {
         html += f"}});\n"
 
     # CPU
-    html += "const chartCpu = echarts.init(document.getElementById('chart-cpu'));\n"
+    html += "charts['chart-cpu'] = echarts.init(document.getElementById('chart-cpu'));\n"
     cpu_data = [r for r in data.get("resource", []) if r.get("metric") == "CPU"]
     if cpu_data:
         cpu_scenarios = [r["scenario"] for r in cpu_data]
-        html += f"chartCpu.setOption({{\n"
+        html += f"charts['chart-cpu'].setOption({{\n"
         html += f"  title: {{ text: '高频事件 CPU 占用' }},\n"
         html += f"  tooltip: {{ trigger: 'axis' }},\n"
         html += f"  legend: {{ data: ['基线','平均','峰值'] }},\n"
@@ -582,11 +589,11 @@ function showTab(id) {
         html += f"}});\n"
 
     # DB size
-    html += "const chartDbsize = echarts.init(document.getElementById('chart-dbsize'));\n"
+    html += "charts['chart-dbsize'] = echarts.init(document.getElementById('chart-dbsize'));\n"
     db_data = [r for r in data.get("resource", []) if r.get("metric") == "DBSize"]
     if db_data:
         d = db_data[0]
-        html += f"chartDbsize.setOption({{\n"
+        html += f"charts['chart-dbsize'].setOption({{\n"
         html += f"  title: {{ text: '数据库体积' }},\n"
         html += f"  tooltip: {{ trigger: 'axis' }},\n"
         html += f"  xAxis: {{ type: 'category', data: ['DB','WAL'] }},\n"
@@ -594,6 +601,16 @@ function showTab(id) {
         html += f"  series: [{{ type:'bar', data:[{d.get('size_kb',0)},{d.get('wal_kb',0)}] }}]\n"
         html += f"}});\n"
 
+    html += "\n// 初始化后对活动面板resize\n"
+    html += "window.addEventListener('load', function() {\n"
+    html += "  document.querySelectorAll('.panel.active .chart').forEach(function(el) {\n"
+    html += "    var ch = charts[el.id];\n"
+    html += "    if (ch) ch.resize();\n"
+    html += "  });\n"
+    html += "});\n"
+    html += "window.addEventListener('resize', function() {\n"
+    html += "  for (var id in charts) { if (charts[id]) charts[id].resize(); }\n"
+    html += "});\n"
     html += "</script>\n</body>\n</html>"
 
     path = os.path.join(output_dir, "dashboard.html")
