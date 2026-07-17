@@ -41,6 +41,8 @@ private:
 
     // 已监控目录集合
     QSet<QString> m_watchedDirs;
+    // 已知文件集合（用于区分 create 和 modify）
+    QSet<QString> m_knownFiles;
     // 最近处理过的路径，防抖
     QHash<QString, qint64> m_debounce;
     static constexpr int DEBOUNCE_MS = 500;

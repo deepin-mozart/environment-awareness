@@ -92,6 +92,10 @@ void FileSensor::setupDefaultWatches()
         if (dir.exists()) {
             m_watcher->addPath(path);
             m_watchedDirs.insert(path);
+            // 记录启动时已存在的文件，作为已知文件基线
+            for (const auto &entry : dir.entryList(QDir::Files)) {
+                m_knownFiles.insert(dir.absoluteFilePath(entry));
+            }
         } else {
             awLogWarning() << "FileSensor: watch path does not exist:" << path;
         }
@@ -112,9 +116,11 @@ void FileSensor::onFileChanged(const QString &path)
 
     if (!fi.exists()) {
         action = QStringLiteral("delete");
-    } else if (fi.size() == 0) {
-        // 新创建的空文件
+        m_knownFiles.remove(path);
+    } else if (!m_knownFiles.contains(path)) {
+        // 文件不在已知集合中 → 新文件
         action = QStringLiteral("create");
+        m_knownFiles.insert(path);
     } else {
         action = QStringLiteral("modify");
     }
@@ -141,7 +147,9 @@ void FileSensor::onDirectoryChanged(const QString &path)
             auto fit = m_debounce.find(newPath);
             if (fit == m_debounce.end() || (now - fit.value()) > DEBOUNCE_MS) {
                 m_debounce[newPath] = now;
-                emitFileEvent(newPath, fi.size() == 0 ? QStringLiteral("create") : QStringLiteral("modify"));
+                bool isNew = !m_knownFiles.contains(newPath);
+                m_knownFiles.insert(newPath);
+                emitFileEvent(newPath, isNew ? QStringLiteral("create") : QStringLiteral("modify"));
             }
         }
     }
@@ -178,8 +186,9 @@ void FileSensor::onRescanTimer()
                 auto it = m_debounce.find(filePath);
                 if (it == m_debounce.end() || (now - it.value()) > DEBOUNCE_MS) {
                     m_debounce[filePath] = now;
-                    awLogInfo() << "FileSensor: detected new file:" << filePath;
-                    emitFileEvent(filePath, fi.size() == 0 ? QStringLiteral("create") : QStringLiteral("modify"));
+                    bool isNew = !m_knownFiles.contains(filePath);
+                    m_knownFiles.insert(filePath);
+                    emitFileEvent(filePath, isNew ? QStringLiteral("create") : QStringLiteral("modify"));
                 }
             }
         }
@@ -197,6 +206,7 @@ void FileSensor::onRescanTimer()
 
 void FileSensor::emitFileEvent(const QString &path, const QString &action)
 {
+    awLogInfo() << "FileSensor emit:" << action << "path:" << path << "known:" << m_knownFiles.contains(path);
     Event event(EventType::File, action);
     event.filePath = path;
 
