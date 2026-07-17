@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Environment Awareness Benchmark Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+.header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+.header h1 { margin: 0; }
+.header .meta { font-size: 13px; opacity: 0.8; margin-top: 8px; }
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.tab { padding: 10px 20px; background: white; border-radius: 6px; cursor: pointer;
+       border: 1px solid #ddd; transition: all 0.2s; }
+.tab.active { background: #3498db; color: white; border-color: #3498db; }
+.panel { display: none; }
+.panel.active { display: block; }
+.chart-container { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px;
+                   box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.chart { width: 100%; height: 400px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.threshold-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.threshold-table th, .threshold-table td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+.threshold-table th { background: #f0f0f0; }
+.pass { color: #27ae60; font-weight: bold; }
+.warn { color: #e67e22; font-weight: bold; }
+.fail { color: #e74c3c; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Environment Awareness Benchmark Dashboard</h1>
+  <div class="meta">Date: 2026-07-17T10:35:41.421771 | Commit: bed3504 | Scale: S4</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('queries')">查询性能</div>
+  <div class="tab" onclick="showTab('signals')">信号延迟</div>
+  <div class="tab" onclick="showTab('sensors')">Sensor 精确率</div>
+  <div class="tab" onclick="showTab('resource')">资源开销</div>
+</div>
+
+<div id="queries" class="panel active">
+  <div class="chart-container"><div id="chart-query" class="chart"></div></div>
+  <div class="chart-container"><div id="chart-digest" class="chart"></div></div>
+</div>
+
+<div id="signals" class="panel">
+  <div class="chart-container"><div id="chart-signal" class="chart"></div></div>
+</div>
+
+<div id="sensors" class="panel">
+  <div class="chart-container"><div id="chart-sensor" class="chart"></div></div>
+</div>
+
+<div id="resource" class="panel">
+  <div class="chart-container"><div id="chart-rss" class="chart"></div></div>
+  <div class="chart-container"><div id="chart-cpu" class="chart"></div></div>
+  <div class="chart-container"><div id="chart-dbsize" class="chart"></div></div>
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  // 触发重绘
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+}
+</script>
+<script>
+const chartQuery = echarts.init(document.getElementById('chart-query'));
+chartQuery.setOption({
+  title: { text: '查询延迟对比' },
+  tooltip: { trigger: 'axis' },
+  legend: { top: 30 },
+  xAxis: { type: 'category', data: ["1天", "1小时", "7天", "7天 GetActivityDigest", "全量扫描", "全量统计", "关键词搜索main", "分页limit100", "分页大offset", "应用过滤chrome", "按天统计", "按应用统计", "时间范围1d", "时间范围1h", "类型过滤window", "组合过滤"] },
+  yAxis: { type: 'value', name: 'ms' },
+  series: [{"name": "QueryActions P50", "type": "bar", "data": [0, 0, 0, 0, 2498.98, 0, 322.52, 2.51, 2.53, 620.25, 0, 0, 349.62, 28.15, 1734.52, 8.44]}, {"name": "QueryActions P95", "type": "bar", "data": [0, 0, 0, 0, 2535.2, 0, 345.41, 2.83, 2.7, 670.34, 0, 0, 369.53, 34.2, 1784.95, 9.11]}, {"name": "GetActivityDigest P50", "type": "bar", "data": [13.91, 1.39, 116.14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"name": "GetActivityDigest P95", "type": "bar", "data": [18.53, 3.39, 123.25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"name": "GetActionStats P50", "type": "bar", "data": [0, 0, 0, 0, 0, 9.85, 0, 0, 0, 0, 9.82, 9.72, 0, 0, 0, 0]}, {"name": "GetActionStats P95", "type": "bar", "data": [0, 0, 0, 0, 0, 10.36, 0, 0, 0, 0, 10.16, 15.67, 0, 0, 0, 0]}, {"name": "DBusSerialization P50", "type": "bar", "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"name": "DBusSerialization P95", "type": "bar", "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}]
+});
+const chartDigest = echarts.init(document.getElementById('chart-digest'));
+chartDigest.setOption({
+  title: { text: 'GetActivityDigest 延迟' },
+  tooltip: { trigger: 'axis' },
+  legend: { data: ['P50','P95','Max'] },
+  xAxis: { type: 'category', data: ["1小时", "1天", "7天"] },
+  yAxis: { type: 'value', name: 'ms' },
+  series: [
+    { name:'P50', type:'line', data:[1.39, 13.91, 116.14] },
+    { name:'P95', type:'line', data:[3.39, 18.53, 123.25] },
+    { name:'Max', type:'line', data:[3.39, 18.53, 123.25] }
+  ]
+});
+const chartSignal = echarts.init(document.getElementById('chart-signal'));
+chartSignal.setOption({
+  title: { text: '信号投递延迟' },
+  tooltip: { trigger: 'axis' },
+  legend: { data: ['P50','P95','Max'] },
+  xAxis: { type: 'category', data: ["WindowChanged", "ClipboardChanged"] },
+  yAxis: { type: 'value', name: 'ms' },
+  series: [
+    { name:'P50', type:'bar', data:[18.05, 10.51] },
+    { name:'P95', type:'bar', data:[19.17, 16.83] },
+    { name:'Max', type:'bar', data:[19.17, 16.83] }
+  ]
+});
+const chartSensor = echarts.init(document.getElementById('chart-sensor'));
+chartSensor.setOption({
+  title: { text: 'Sensor 精确率' },
+  tooltip: { trigger: 'axis' },
+  legend: { data: ['Recall','Precision','appName准确率','Title准确率'] },
+  xAxis: { type: 'category', data: ["Window", "File", "Clipboard"] },
+  yAxis: { type: 'value', name: '%', max: 100 },
+  series: [
+    { name:'Recall', type:'bar', data:[100.0, 100.0, 94.4] },
+    { name:'Precision', type:'bar', data:[76.5, 100.0, 100.0] },
+    { name:'appName准确率', type:'bar', data:[100.0, 0, 0] },
+    { name:'Title准确率', type:'bar', data:[7.7, 0, 0] }
+  ]
+});
+const chartRss = echarts.init(document.getElementById('chart-rss'));
+chartRss.setOption({
+  title: { text: 'Daemon 内存占用' },
+  tooltip: { trigger: 'axis' },
+  xAxis: { type: 'category', data: [0.0, 0.2, 0.3, 0.5, 0.7, 0.8, 1.0, 1.2, 1.3, 1.5, 1.7, 1.8] },
+  yAxis: { type: 'value', name: 'MB' },
+  series: [{ type:'line', name:'RSS', data:[113.9, 113.9, 113.9, 113.9, 113.9, 113.9, 113.9, 113.9, 113.9, 113.9, 113.9, 113.9], markLine: { data: [{ yAxis: 40 }] } }]
+});
+const chartCpu = echarts.init(document.getElementById('chart-cpu'));
+const chartDbsize = echarts.init(document.getElementById('chart-dbsize'));
+chartDbsize.setOption({
+  title: { text: '数据库体积' },
+  tooltip: { trigger: 'axis' },
+  xAxis: { type: 'category', data: ['DB','WAL'] },
+  yAxis: { type: 'value', name: 'KB' },
+  series: [{ type:'bar', data:[16980.0,19119.4] }]
+});
+</script>
+</body>
+</html>
