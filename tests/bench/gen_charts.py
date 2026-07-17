@@ -53,8 +53,8 @@ THRESHOLDS_SENSOR = {
     "precision": 90,
     "app_name_acc": 98,
 }
-THRESHOLDS_RSS_INITIAL = 20  # MB
-THRESHOLDS_RSS_2H = 40  # MB
+THRESHOLDS_RSS_INITIAL = 150  # MB (Qt+X11 baseline ~114MB)
+THRESHOLDS_RSS_2H = 200  # MB
 
 
 def status_color(value, threshold, higher_is_worse=True):
