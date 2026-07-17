@@ -63,7 +63,7 @@ def bench_window_sensor(runs=15):
         return None
 
     # 过滤出有标题的窗口
-    targets = [w for w in windows if len(w.split(None, 4)) >= 5]
+    targets = [w for w in windows if len(w.split(None, 3)) >= 4]
     if len(targets) < 2:
         print("  WARNING: 有标题的窗口不足2个，跳过")
         return None
@@ -71,9 +71,9 @@ def bench_window_sensor(runs=15):
     # 选取要切换的窗口标题
     switch_titles = []
     for w in targets[:min(runs, len(targets))]:
-        parts = w.split(None, 4)
-        if len(parts) >= 5:
-            switch_titles.append(parts[4].strip())
+        parts = w.split(None, 3)
+        if len(parts) >= 4:
+            switch_titles.append(parts[3].strip())
 
     if not switch_titles:
         print("  WARNING: 无法提取窗口标题，跳过")
