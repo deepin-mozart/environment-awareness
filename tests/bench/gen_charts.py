@@ -53,8 +53,8 @@ THRESHOLDS_SENSOR = {
     "precision": 90,
     "app_name_acc": 98,
 }
-THRESHOLDS_RSS_INITIAL = 150  # MB (Qt+X11 baseline ~114MB)
-THRESHOLDS_RSS_2H = 200  # MB
+THRESHOLDS_RSS_INITIAL = 150  # MB — Qt5+X11+QDBus 固定基线 ~114MB，阈值预留 ~36MB 缓冲
+THRESHOLDS_RSS_2H = 200  # MB — 2h 运行后允许额外增长 50MB
 
 
 def status_color(value, threshold, higher_is_worse=True):
